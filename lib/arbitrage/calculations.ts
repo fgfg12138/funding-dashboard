@@ -15,6 +15,14 @@ export function calculateAnnualizedRate(fundingRate: number, fundingIntervalHour
   return fundingRate * (24 / fundingIntervalHours) * 365 * 100;
 }
 
+export function calculateDirectionalPriceSpread(shortPrice: number, longPrice: number): number {
+  if (!Number.isFinite(shortPrice) || !Number.isFinite(longPrice) || longPrice <= 0) {
+    return 0;
+  }
+
+  return ((shortPrice - longPrice) / longPrice) * 100;
+}
+
 export function calculateCrossExchangeFundingSpread(
   symbol: string,
   markets: FundingMarket[]
@@ -51,8 +59,6 @@ export function calculateCrossExchangeFundingSpread(
     acc[market.exchange] = market.fundingIntervalHours;
     return acc;
   }, {});
-  const maxPrice = Math.max(...validMarkets.map((market) => market.markPrice));
-  const minPrice = Math.min(...validMarkets.map((market) => market.markPrice));
 
   return {
     symbol,
@@ -66,7 +72,7 @@ export function calculateCrossExchangeFundingSpread(
     direction: `\u7a7a ${highest.market.exchange} / \u591a ${lowest.market.exchange}`,
     shortExchange: highest.market.exchange,
     longExchange: lowest.market.exchange,
-    priceSpread: minPrice > 0 ? ((maxPrice - minPrice) / minPrice) * 100 : 0,
+    priceSpread: calculateDirectionalPriceSpread(highest.market.markPrice, lowest.market.markPrice),
     nextFundingTime: Math.min(...validMarkets.map((market) => market.nextFundingTime).filter(Boolean)),
     volume24h: sumOptional(validMarkets.map((market) => market.volume24h)),
     openInterestUsd: sumOptional(validMarkets.map((market) => market.openInterestUsd))

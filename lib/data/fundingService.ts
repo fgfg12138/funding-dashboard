@@ -7,6 +7,7 @@ import { fetchAllFundingMarkets, fetchAllSpotMarkets } from "../exchanges";
 import type {
   CrossExchangeOpportunity,
   DashboardSummary,
+  DebugMarketRow,
   FundingMarket,
   SpotMarket,
   SpotPerpOpportunity
@@ -53,6 +54,24 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   };
 }
 
+export async function getDebugMarketRows(): Promise<DebugMarketRow[]> {
+  const snapshot = await getFundingSnapshot();
+
+  return snapshot.fundingMarkets
+    .map((market) => ({
+      exchange: market.exchange,
+      rawSymbol: market.rawSymbol,
+      normalizedSymbol: market.symbol,
+      fundingRate: market.fundingRate,
+      annualizedRate: calculateAnnualizedRate(market.fundingRate, market.fundingIntervalHours),
+      markPrice: market.markPrice,
+      nextFundingTime: market.nextFundingTime,
+      volume24h: market.volume24h,
+      openInterestUsd: market.openInterestUsd
+    }))
+    .sort((a, b) => a.exchange.localeCompare(b.exchange) || a.normalizedSymbol.localeCompare(b.normalizedSymbol));
+}
+
 export function buildCrossExchangeOpportunities(markets: FundingMarket[]): CrossExchangeOpportunity[] {
   const grouped = groupBy(markets, (market) => market.symbol);
 
@@ -63,17 +82,18 @@ export function buildCrossExchangeOpportunities(markets: FundingMarket[]): Cross
 }
 
 export function buildSpotPerpOpportunities(spots: SpotMarket[], perps: FundingMarket[]): SpotPerpOpportunity[] {
-  const spotBySymbol = new Map<string, SpotMarket>();
+  const spotByExchangeSymbol = new Map<string, SpotMarket>();
   for (const spot of spots) {
-    const existing = spotBySymbol.get(spot.symbol);
+    const key = `${spot.exchange}:${spot.symbol}`;
+    const existing = spotByExchangeSymbol.get(key);
     if (!existing || (spot.volume24h ?? 0) > (existing.volume24h ?? 0)) {
-      spotBySymbol.set(spot.symbol, spot);
+      spotByExchangeSymbol.set(key, spot);
     }
   }
 
   return perps
     .map((perp) => {
-      const spot = spotBySymbol.get(perp.symbol);
+      const spot = spotByExchangeSymbol.get(`${perp.exchange}:${perp.symbol}`);
       return spot ? calculateSpotPerpOpportunity(spot, perp) : null;
     })
     .filter((item): item is SpotPerpOpportunity => Boolean(item))

@@ -8,6 +8,7 @@ export type NormalizedSymbol = {
 
 export type FundingMarket = {
   exchange: ExchangeName;
+  rawSymbol: string;
   symbol: string;
   base: string;
   quote: string;
@@ -48,6 +49,18 @@ export type CrossExchangeOpportunity = {
   shortExchange: ExchangeName;
   longExchange: ExchangeName;
   priceSpread: number;
+  nextFundingTime: number;
+  volume24h?: number;
+  openInterestUsd?: number;
+};
+
+export type DebugMarketRow = {
+  exchange: ExchangeName;
+  rawSymbol: string;
+  normalizedSymbol: string;
+  fundingRate: number;
+  annualizedRate: number;
+  markPrice: number;
   nextFundingTime: number;
   volume24h?: number;
   openInterestUsd?: number;

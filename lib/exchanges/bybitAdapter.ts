@@ -39,6 +39,7 @@ export async function fetchBybitFundingMarkets(): Promise<FundingMarket[]> {
       const normalized = normalizeSymbol(item.symbol);
       return {
         exchange: "Bybit" as const,
+        rawSymbol: item.symbol,
         symbol: normalized.symbol,
         base: normalized.base,
         quote: normalized.quote,
