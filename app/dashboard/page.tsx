@@ -72,6 +72,7 @@ export default function DashboardPage() {
       .filter((row) => Object.values(row.markets).filter(Boolean).length >= minExchangeCount)
       .filter((row) => Object.keys(row.markets).some((exchange) => enabledExchanges[exchange as ExchangeName]))
       .sort((a, b) => {
+        if (sortMode === "score") return b.score - a.score;
         if (sortMode === "volume") return (b.volume24h ?? 0) - (a.volume24h ?? 0);
         if (sortMode === "single") {
           return Math.max(...Object.values(b.annualizedRates).map(Number)) - Math.max(...Object.values(a.annualizedRates).map(Number));
@@ -87,6 +88,7 @@ export default function DashboardPage() {
       .filter((row) => (row.volume24h ?? 0) >= minVolume)
       .filter((row) => enabledExchanges[row.spotExchange] && enabledExchanges[row.perpExchange])
       .sort((a, b) => {
+        if (sortMode === "score") return b.score - a.score;
         if (sortMode === "volume") return (b.volume24h ?? 0) - (a.volume24h ?? 0);
         return b.annualized - a.annualized;
       });
@@ -160,6 +162,7 @@ export default function DashboardPage() {
               value={sortMode}
               onChange={(event) => setSortMode(event.target.value)}
             >
+              <option value="score">Score</option>
               <option value="spread">年化价差</option>
               <option value="single">单所年化</option>
               <option value="volume">24h 成交量</option>
@@ -221,13 +224,17 @@ function CrossExchangeTable({ rows }: { rows: CrossExchangeOpportunity[] }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const columns = useMemo<ColumnDef<CrossExchangeOpportunity>[]>(
     () => [
+      { accessorKey: "score", header: "Score", cell: ({ getValue }) => <ScoreCell value={getValue<number>()} /> },
+      { accessorKey: "riskTags", header: "Risk", cell: ({ getValue }) => <RiskTags tags={getValue<string[]>()} /> },
       { accessorKey: "symbol", header: "币种" },
+      { accessorKey: "exchangeCount", header: "Exchanges" },
       { header: "Binance", cell: ({ row }) => <RateCell rate={row.original.fundingRates.Binance} annualized={row.original.annualizedRates.Binance} hours={row.original.fundingIntervalHours.Binance} /> },
       { header: "OKX", cell: ({ row }) => <RateCell rate={row.original.fundingRates.OKX} annualized={row.original.annualizedRates.OKX} hours={row.original.fundingIntervalHours.OKX} /> },
       { header: "Bybit", cell: ({ row }) => <RateCell rate={row.original.fundingRates.Bybit} annualized={row.original.annualizedRates.Bybit} hours={row.original.fundingIntervalHours.Bybit} /> },
       { accessorKey: "annualizedSpread", header: "年化价差", cell: ({ getValue }) => <ColoredPercent value={getValue<number>()} hot /> },
       { accessorKey: "direction", header: "方向" },
       { accessorKey: "priceSpread", header: "价格价差", cell: ({ getValue }) => formatPercent(getValue<number>()) },
+      { accessorKey: "priceSpreadDirection", header: "Price direction" },
       { accessorKey: "nextFundingTime", header: "下次收取", cell: ({ getValue }) => formatTime(getValue<number>()) },
       { accessorKey: "nextFundingTime", header: "倒计时", cell: ({ getValue }) => formatCountdown(getValue<number>()) },
       { accessorKey: "volume24h", header: "24h 成交量", cell: ({ getValue }) => formatUsd(getValue<number>()) },
@@ -243,7 +250,10 @@ function SpotPerpTable({ rows }: { rows: SpotPerpOpportunity[] }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const columns = useMemo<ColumnDef<SpotPerpOpportunity>[]>(
     () => [
+      { accessorKey: "score", header: "Score", cell: ({ getValue }) => <ScoreCell value={getValue<number>()} /> },
+      { accessorKey: "riskTags", header: "Risk", cell: ({ getValue }) => <RiskTags tags={getValue<string[]>()} /> },
       { accessorKey: "symbol", header: "币种" },
+      { accessorKey: "exchangeCount", header: "Exchanges" },
       { accessorKey: "spotExchange", header: "现货交易所" },
       { accessorKey: "perpExchange", header: "合约交易所" },
       { accessorKey: "fundingRate", header: "Funding", cell: ({ getValue }) => <ColoredPercent value={getValue<number>() * 100} /> },
@@ -251,6 +261,7 @@ function SpotPerpTable({ rows }: { rows: SpotPerpOpportunity[] }) {
       { accessorKey: "spotPrice", header: "现货价格", cell: ({ getValue }) => formatPrice(getValue<number>()) },
       { accessorKey: "perpPrice", header: "合约价格", cell: ({ getValue }) => formatPrice(getValue<number>()) },
       { accessorKey: "priceSpread", header: "价差", cell: ({ getValue }) => formatPercent(getValue<number>()) },
+      { accessorKey: "priceSpreadDirection", header: "Price direction" },
       { accessorKey: "volume24h", header: "24h 成交量", cell: ({ getValue }) => formatUsd(getValue<number>()) }
     ],
     []
@@ -325,6 +336,31 @@ function RateCell({ rate, annualized, hours }: { rate?: number; annualized?: num
     <div className="leading-5">
       <ColoredPercent value={rate * 100} />
       <div className="text-slate-500">{formatPercent(annualized)} / {hours ?? 8}h</div>
+    </div>
+  );
+}
+
+function ScoreCell({ value }: { value?: number }) {
+  if (value === undefined || !Number.isFinite(value)) {
+    return <span className="text-slate-600">-</span>;
+  }
+
+  const color = value >= 75 ? "text-emerald-300" : value >= 45 ? "text-orange-300" : "text-rose-300";
+  return <span className={`font-semibold ${color}`}>{value}</span>;
+}
+
+function RiskTags({ tags }: { tags?: string[] }) {
+  if (!tags || tags.length === 0) {
+    return <span className="text-slate-600">-</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {tags.map((tag) => (
+        <span key={tag} className="rounded border border-amber-300/40 bg-amber-300/10 px-1.5 py-0.5 text-[11px] text-amber-200">
+          {tag}
+        </span>
+      ))}
     </div>
   );
 }

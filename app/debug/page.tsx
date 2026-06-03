@@ -10,6 +10,8 @@ type ApiResponse<T> = {
   updatedAt: number;
 };
 
+const LIMITED_DEBUG_MESSAGE = "\u5f53\u524d\u4ec5\u5c55\u793a\u524d 500 \u6761\uff0c\u8bf7\u4f7f\u7528\u641c\u7d22\u8fc7\u6ee4";
+
 export default function DebugPage() {
   const [rows, setRows] = useState<DebugMarketRow[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
@@ -79,6 +81,7 @@ export default function DebugPage() {
             <span>{filteredRows.length} / {rows.length} rows</span>
             <span>Updated {updatedAt ? new Date(updatedAt).toLocaleTimeString() : "-"}</span>
             {errors.length > 0 && <span className="text-amber-300">Partial exchange fetch failure</span>}
+            {filteredRows.length > 500 && <span className="text-cyan-300">{LIMITED_DEBUG_MESSAGE}</span>}
           </div>
         </section>
 

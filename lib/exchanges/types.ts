@@ -48,7 +48,11 @@ export type CrossExchangeOpportunity = {
   direction: string;
   shortExchange: ExchangeName;
   longExchange: ExchangeName;
+  exchangeCount: number;
+  score: number;
+  riskTags: string[];
   priceSpread: number;
+  priceSpreadDirection: string;
   nextFundingTime: number;
   volume24h?: number;
   openInterestUsd?: number;
@@ -72,11 +76,15 @@ export type SpotPerpOpportunity = {
   quote: string;
   spotExchange: ExchangeName;
   perpExchange: ExchangeName;
+  exchangeCount: number;
+  score: number;
+  riskTags: string[];
   fundingRate: number;
   annualized: number;
   spotPrice: number;
   perpPrice: number;
   priceSpread: number;
+  priceSpreadDirection: string;
   volume24h?: number;
   nextFundingTime: number;
 };

@@ -23,6 +23,8 @@ type BinanceOpenInterest = {
 
 const FUTURES_BASE = "https://fapi.binance.com";
 const SPOT_BASE = "https://api.binance.com";
+const OPEN_INTEREST_CACHE_TTL_MS = 4 * 60_000;
+const openInterestCache = new Map<string, { expiresAt: number; openInterest: number }>();
 
 export async function fetchBinanceFundingMarkets(): Promise<FundingMarket[]> {
   const [premium, tickers] = await Promise.all([
@@ -56,21 +58,41 @@ export async function fetchBinanceFundingMarkets(): Promise<FundingMarket[]> {
 }
 
 async function fetchBinanceOpenInterestUsd(symbolPrices: Array<[string, number]>): Promise<Map<string, number>> {
-  const rows = await mapLimit(symbolPrices, 12, async ([symbol, markPrice]) => {
+  const now = Date.now();
+  const missingSymbols = symbolPrices.filter(([symbol]) => {
+    const cached = openInterestCache.get(symbol);
+    return !cached || cached.expiresAt <= now;
+  });
+
+  await mapLimit(missingSymbols, 12, async ([symbol]) => {
     try {
       const data = await fetchJson<BinanceOpenInterest>(
         `${FUTURES_BASE}/fapi/v1/openInterest?symbol=${encodeURIComponent(symbol)}`,
         5_000
       );
-      const openInterestUsd = Number(data.openInterest) * markPrice;
+      const openInterest = Number(data.openInterest);
 
-      return Number.isFinite(openInterestUsd) ? [symbol, openInterestUsd] as const : null;
+      if (Number.isFinite(openInterest)) {
+        openInterestCache.set(symbol, {
+          expiresAt: now + OPEN_INTEREST_CACHE_TTL_MS,
+          openInterest
+        });
+      }
     } catch {
-      return null;
+      // Keep funding data usable when Binance open interest is unavailable.
     }
   });
 
-  return new Map(rows.filter((row): row is readonly [string, number] => Boolean(row)));
+  return new Map(
+    symbolPrices
+      .map(([symbol, markPrice]) => {
+        const cached = openInterestCache.get(symbol);
+        const openInterestUsd = cached ? cached.openInterest * markPrice : undefined;
+
+        return Number.isFinite(openInterestUsd) ? [symbol, openInterestUsd as number] as const : null;
+      })
+      .filter((row): row is readonly [string, number] => Boolean(row))
+  );
 }
 
 export async function fetchBinanceSpotMarkets(): Promise<SpotMarket[]> {
