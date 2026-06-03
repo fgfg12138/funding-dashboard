@@ -11,6 +11,7 @@ const LOW_LIQUIDITY = "\u4f4e\u6d41\u52a8\u6027";
 const MISSING_OPEN_INTEREST = "\u6301\u4ed3\u91cf\u7f3a\u5931";
 const WIDE_PRICE_SPREAD = "\u4ef7\u5dee\u8fc7\u5927";
 const HIGH_FUNDING_RATE = "\u9ad8\u8d39\u7387";
+const ABNORMAL_FUNDING_RATE = "\u5f02\u5e38\u8d39\u7387";
 const NEAR_SETTLEMENT = "\u7ed3\u7b97\u4e34\u8fd1";
 
 export function calculateAnnualizedRate(fundingRate: number, fundingIntervalHours: number): number {
@@ -40,7 +41,7 @@ type OpportunityQualityInput = {
 };
 
 export function calculateOpportunityScore(input: OpportunityQualityInput): number {
-  const annualizedScore = clamp(input.annualizedRate / 50) * 35;
+  const annualizedScore = calculateAnnualizedScore(input.annualizedRate);
   const volumeScore = clamp((input.volume24h ?? 0) / 100_000_000) * 20;
   const openInterestScore = clamp((input.openInterestUsd ?? 0) / 100_000_000) * 20;
   const priceSpreadScore = clamp(1 - Math.abs(input.priceSpread) / 2) * 15;
@@ -61,8 +62,9 @@ export function getOpportunityRiskTags(input: OpportunityQualityInput): string[]
   if (Math.abs(input.priceSpread) >= 1) {
     tags.push(WIDE_PRICE_SPREAD);
   }
-  if (input.annualizedRate > 50) {
+  if (input.annualizedRate > 300) {
     tags.push(HIGH_FUNDING_RATE);
+    tags.push(ABNORMAL_FUNDING_RATE);
   }
   if (input.nextFundingTime > Date.now() && input.nextFundingTime - Date.now() <= 30 * 60_000) {
     tags.push(NEAR_SETTLEMENT);
@@ -137,6 +139,13 @@ export function calculateCrossExchangeFundingSpread(
     exchangeCount,
     score: calculateOpportunityScore(qualityInput),
     riskTags: getOpportunityRiskTags(qualityInput),
+    opportunityReason: describeCrossOpportunity(
+      highest.market.exchange,
+      lowest.market.exchange,
+      priceSpread,
+      volume24h,
+      qualityInput.hasMissingOpenInterest
+    ),
     priceSpread,
     priceSpreadDirection: describeCrossPriceSpread(highest.market.exchange, lowest.market.exchange, priceSpread),
     nextFundingTime,
@@ -173,6 +182,7 @@ export function calculateSpotPerpOpportunity(
     exchangeCount: 1,
     score: calculateOpportunityScore(qualityInput),
     riskTags: getOpportunityRiskTags(qualityInput),
+    opportunityReason: describeSpotPerpOpportunity(perp.exchange, spot.exchange, priceSpread, volume24h, perp.openInterestUsd),
     fundingRate: perp.fundingRate,
     annualized: qualityInput.annualizedRate,
     spotPrice: spot.price,
@@ -182,6 +192,51 @@ export function calculateSpotPerpOpportunity(
     volume24h,
     nextFundingTime: perp.nextFundingTime
   };
+}
+
+function calculateAnnualizedScore(annualizedRate: number): number {
+  if (!Number.isFinite(annualizedRate) || annualizedRate <= 0) {
+    return 0;
+  }
+  if (annualizedRate <= 30) {
+    return (annualizedRate / 30) * 10;
+  }
+  if (annualizedRate <= 90) {
+    return 10 + ((annualizedRate - 30) / 60) * 15;
+  }
+  if (annualizedRate <= 300) {
+    return 25 + ((annualizedRate - 90) / 210) * 10;
+  }
+
+  return 35;
+}
+
+function describeCrossOpportunity(
+  shortExchange: ExchangeName,
+  longExchange: ExchangeName,
+  priceSpread: number,
+  volume24h: number | undefined,
+  hasMissingOpenInterest: boolean | undefined
+): string {
+  return `${shortExchange} \u5e74\u5316\u9ad8\u4e8e ${longExchange}\uff0c\u65b9\u5411\u4e3a\u7a7a ${shortExchange} / \u591a ${longExchange}\uff1b\u4ef7\u5dee ${Math.abs(priceSpread).toFixed(2)}%\uff0c${describeLiquidity(volume24h)}\uff0c${describeOpenInterest(hasMissingOpenInterest)}\u3002`;
+}
+
+function describeSpotPerpOpportunity(
+  perpExchange: ExchangeName,
+  spotExchange: ExchangeName,
+  priceSpread: number,
+  volume24h: number | undefined,
+  openInterestUsd: number | undefined
+): string {
+  return `${spotExchange} \u4e70\u73b0\u8d27 / ${perpExchange} \u7a7a\u6c38\u7eed\uff1b\u4ef7\u5dee ${Math.abs(priceSpread).toFixed(2)}%\uff0c${describeLiquidity(volume24h)}\uff0c${describeOpenInterest(!openInterestUsd || openInterestUsd <= 0)}\u3002`;
+}
+
+function describeLiquidity(volume24h: number | undefined): string {
+  return (volume24h ?? 0) >= 1_000_000 ? "24h\u6210\u4ea4\u91cf\u5145\u8db3" : "24h\u6210\u4ea4\u91cf\u504f\u4f4e";
+}
+
+function describeOpenInterest(hasMissingOpenInterest: boolean | undefined): string {
+  return hasMissingOpenInterest ? "\u6301\u4ed3\u91cf\u7f3a\u5931" : "\u6301\u4ed3\u91cf\u6b63\u5e38";
 }
 
 function describeCrossPriceSpread(shortExchange: ExchangeName, longExchange: ExchangeName, priceSpread: number): string {

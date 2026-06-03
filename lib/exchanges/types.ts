@@ -51,6 +51,7 @@ export type CrossExchangeOpportunity = {
   exchangeCount: number;
   score: number;
   riskTags: string[];
+  opportunityReason: string;
   priceSpread: number;
   priceSpreadDirection: string;
   nextFundingTime: number;
@@ -79,6 +80,7 @@ export type SpotPerpOpportunity = {
   exchangeCount: number;
   score: number;
   riskTags: string[];
+  opportunityReason: string;
   fundingRate: number;
   annualized: number;
   spotPrice: number;

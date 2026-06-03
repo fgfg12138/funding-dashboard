@@ -40,6 +40,9 @@ describe("calculateCrossExchangeFundingSpread", () => {
     });
     expect(opportunity?.priceSpread).toBeCloseTo(-1, 4);
     expect(opportunity?.priceSpreadDirection).toContain("Bybit");
+    expect(opportunity?.opportunityReason).toContain("Bybit \u5e74\u5316\u9ad8\u4e8e Binance");
+    expect(opportunity?.opportunityReason).toContain("\u65b9\u5411\u4e3a\u7a7a Bybit / \u591a Binance");
+    expect(opportunity?.opportunityReason).toContain("24h\u6210\u4ea4\u91cf\u5145\u8db3");
     expect(opportunity?.score).toBeGreaterThanOrEqual(0);
     expect(opportunity?.score).toBeLessThanOrEqual(100);
     expect(opportunity?.riskTags).toEqual(expect.arrayContaining([missingOi, wideSpread, nearSettlement]));

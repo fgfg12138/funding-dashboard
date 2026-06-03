@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const [search, setSearch] = useState("");
   const [minVolume, setMinVolume] = useState(1_000_000);
   const [minExchangeCount, setMinExchangeCount] = useState(2);
+  const [recommendedOnly, setRecommendedOnly] = useState(false);
   const [enabledExchanges, setEnabledExchanges] = useState<Record<ExchangeName, boolean>>({
     Binance: true,
     OKX: true,
@@ -71,6 +72,7 @@ export default function DashboardPage() {
       .filter((row) => (row.volume24h ?? 0) >= minVolume)
       .filter((row) => Object.values(row.markets).filter(Boolean).length >= minExchangeCount)
       .filter((row) => Object.keys(row.markets).some((exchange) => enabledExchanges[exchange as ExchangeName]))
+      .filter((row) => (recommendedOnly ? isRecommendedOpportunity(row) : true))
       .sort((a, b) => {
         if (sortMode === "score") return b.score - a.score;
         if (sortMode === "volume") return (b.volume24h ?? 0) - (a.volume24h ?? 0);
@@ -79,7 +81,7 @@ export default function DashboardPage() {
         }
         return b.annualizedSpread - a.annualizedSpread;
       });
-  }, [crossRows, enabledExchanges, minExchangeCount, minVolume, search, sortMode]);
+  }, [crossRows, enabledExchanges, minExchangeCount, minVolume, recommendedOnly, search, sortMode]);
 
   const filteredSpotRows = useMemo(() => {
     const query = search.trim().toUpperCase();
@@ -87,12 +89,13 @@ export default function DashboardPage() {
       .filter((row) => (query ? row.symbol.includes(query) || row.base.includes(query) : true))
       .filter((row) => (row.volume24h ?? 0) >= minVolume)
       .filter((row) => enabledExchanges[row.spotExchange] && enabledExchanges[row.perpExchange])
+      .filter((row) => (recommendedOnly ? isRecommendedOpportunity(row) : true))
       .sort((a, b) => {
         if (sortMode === "score") return b.score - a.score;
         if (sortMode === "volume") return (b.volume24h ?? 0) - (a.volume24h ?? 0);
         return b.annualized - a.annualized;
       });
-  }, [enabledExchanges, minVolume, search, sortMode, spotRows]);
+  }, [enabledExchanges, minVolume, recommendedOnly, search, sortMode, spotRows]);
 
   return (
     <main className="min-h-screen bg-surface px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
@@ -117,7 +120,7 @@ export default function DashboardPage() {
         <SummaryCards summary={summary} />
 
         <section className="border-y border-slate-800 bg-slate-950/40 py-4">
-          <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_180px_160px_260px_180px]">
+          <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_180px_160px_260px_180px_180px]">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
               <input
@@ -167,6 +170,14 @@ export default function DashboardPage() {
               <option value="single">单所年化</option>
               <option value="volume">24h 成交量</option>
             </select>
+            <label className="flex h-10 items-center gap-2 rounded border border-slate-700 bg-slate-950 px-3 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                checked={recommendedOnly}
+                onChange={(event) => setRecommendedOnly(event.target.checked)}
+              />
+              只看推荐机会
+            </label>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
             <span>跨所 {filteredCrossRows.length} 条</span>
@@ -226,6 +237,7 @@ function CrossExchangeTable({ rows }: { rows: CrossExchangeOpportunity[] }) {
     () => [
       { accessorKey: "score", header: "Score", cell: ({ getValue }) => <ScoreCell value={getValue<number>()} /> },
       { accessorKey: "riskTags", header: "Risk", cell: ({ getValue }) => <RiskTags tags={getValue<string[]>()} /> },
+      { accessorKey: "opportunityReason", header: "Reason", cell: ({ getValue }) => <ReasonCell reason={getValue<string>()} /> },
       { accessorKey: "symbol", header: "币种" },
       { accessorKey: "exchangeCount", header: "Exchanges" },
       { header: "Binance", cell: ({ row }) => <RateCell rate={row.original.fundingRates.Binance} annualized={row.original.annualizedRates.Binance} hours={row.original.fundingIntervalHours.Binance} /> },
@@ -252,6 +264,7 @@ function SpotPerpTable({ rows }: { rows: SpotPerpOpportunity[] }) {
     () => [
       { accessorKey: "score", header: "Score", cell: ({ getValue }) => <ScoreCell value={getValue<number>()} /> },
       { accessorKey: "riskTags", header: "Risk", cell: ({ getValue }) => <RiskTags tags={getValue<string[]>()} /> },
+      { accessorKey: "opportunityReason", header: "Reason", cell: ({ getValue }) => <ReasonCell reason={getValue<string>()} /> },
       { accessorKey: "symbol", header: "币种" },
       { accessorKey: "exchangeCount", header: "Exchanges" },
       { accessorKey: "spotExchange", header: "现货交易所" },
@@ -363,6 +376,22 @@ function RiskTags({ tags }: { tags?: string[] }) {
       ))}
     </div>
   );
+}
+
+function ReasonCell({ reason }: { reason?: string }) {
+  if (!reason) {
+    return <span className="text-slate-600">-</span>;
+  }
+
+  return (
+    <span className="block max-w-[320px] truncate text-[11px] leading-5 text-slate-400" title={reason}>
+      {reason}
+    </span>
+  );
+}
+
+function isRecommendedOpportunity(row: Pick<CrossExchangeOpportunity | SpotPerpOpportunity, "score" | "volume24h" | "priceSpread">) {
+  return row.score >= 60 && (row.volume24h ?? 0) >= 1_000_000 && Math.abs(row.priceSpread) <= 1;
 }
 
 function ColoredPercent({ value, hot = false }: { value?: number; hot?: boolean }) {
