@@ -13,12 +13,19 @@ import type {
   SpotPerpOpportunity
 } from "../exchanges/types";
 import { getCached } from "./cache";
+import { saveHistorySnapshot } from "./historyStore";
 
 const CACHE_TTL_MS = 45_000;
 
 export async function getFundingSnapshot() {
   return getCached("funding-snapshot", CACHE_TTL_MS, async () => {
     const [funding, spot] = await Promise.all([fetchAllFundingMarkets(), fetchAllSpotMarkets()]);
+    try {
+      await saveHistorySnapshot({ fundingMarkets: funding.data, spotMarkets: spot.data });
+    } catch (error) {
+      console.warn("Failed to save funding history snapshot", error);
+    }
+
     return {
       fundingMarkets: funding.data,
       spotMarkets: spot.data,

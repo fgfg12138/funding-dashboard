@@ -9,6 +9,7 @@ import {
   useReactTable
 } from "@tanstack/react-table";
 import { RefreshCw, Search } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   CrossExchangeOpportunity,
@@ -24,6 +25,10 @@ type ApiResponse<T> = {
 };
 
 const EXCHANGES: ExchangeName[] = ["Binance", "OKX", "Bybit"];
+
+function encodeHistorySymbol(symbol: string) {
+  return encodeURIComponent(symbol.replace("/", "_"));
+}
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -239,6 +244,7 @@ function CrossExchangeTable({ rows }: { rows: CrossExchangeOpportunity[] }) {
       { accessorKey: "riskTags", header: "Risk", cell: ({ getValue }) => <RiskTags tags={getValue<string[]>()} /> },
       { accessorKey: "opportunityReason", header: "Reason", cell: ({ getValue }) => <ReasonCell reason={getValue<string>()} /> },
       { accessorKey: "symbol", header: "币种" },
+      { id: "history", header: "历史", cell: ({ row }) => <HistoryLink symbol={row.original.symbol} /> },
       { accessorKey: "exchangeCount", header: "Exchanges" },
       { header: "Binance", cell: ({ row }) => <RateCell rate={row.original.fundingRates.Binance} annualized={row.original.annualizedRates.Binance} hours={row.original.fundingIntervalHours.Binance} /> },
       { header: "OKX", cell: ({ row }) => <RateCell rate={row.original.fundingRates.OKX} annualized={row.original.annualizedRates.OKX} hours={row.original.fundingIntervalHours.OKX} /> },
@@ -266,6 +272,7 @@ function SpotPerpTable({ rows }: { rows: SpotPerpOpportunity[] }) {
       { accessorKey: "riskTags", header: "Risk", cell: ({ getValue }) => <RiskTags tags={getValue<string[]>()} /> },
       { accessorKey: "opportunityReason", header: "Reason", cell: ({ getValue }) => <ReasonCell reason={getValue<string>()} /> },
       { accessorKey: "symbol", header: "币种" },
+      { id: "history", header: "历史", cell: ({ row }) => <HistoryLink symbol={row.original.symbol} /> },
       { accessorKey: "exchangeCount", header: "Exchanges" },
       { accessorKey: "spotExchange", header: "现货交易所" },
       { accessorKey: "perpExchange", header: "合约交易所" },
@@ -387,6 +394,17 @@ function ReasonCell({ reason }: { reason?: string }) {
     <span className="block max-w-[320px] truncate text-[11px] leading-5 text-slate-400" title={reason}>
       {reason}
     </span>
+  );
+}
+
+function HistoryLink({ symbol }: { symbol: string }) {
+  return (
+    <Link
+      className="rounded border border-cyan-400/40 px-2 py-1 text-[11px] text-cyan-200 hover:bg-cyan-400/10"
+      href={`/history/${encodeHistorySymbol(symbol)}`}
+    >
+      查看历史
+    </Link>
   );
 }
 
