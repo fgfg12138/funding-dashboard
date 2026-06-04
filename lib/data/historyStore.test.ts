@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  queryAllOpportunityHistory,
   queryFundingHistory,
   queryOpportunityHistory,
   saveHistorySnapshot
@@ -117,6 +118,9 @@ describe("historyStore", () => {
     const opportunityContent = await readFile(join(historyDir, "opportunities-2026-06-04.jsonl"), "utf8");
     expect(fundingContent).toContain('"exchange":"Binance"');
     expect(opportunityContent).toContain('"type":"cross-exchange"');
+    expect(opportunityContent).toContain('"annualized":');
+    expect(opportunityContent).toContain('"annualizedSpread":');
+    expect(opportunityContent).toContain('"score":');
   });
 
   it("limits funding history queries to the most recent 5000 rows by default", async () => {
@@ -165,6 +169,27 @@ describe("historyStore", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].timestamp).toBe(3000);
+  });
+
+  it("queries all opportunity history across symbols for research analysis", async () => {
+    await mkdir(historyDir, { recursive: true });
+    const rows = ["BTC/USDT", "ETH/USDT"].map((symbol, index) =>
+      JSON.stringify({
+        type: "cross-exchange",
+        symbol,
+        timestamp: 1000 + index,
+        annualized: 20 + index,
+        annualizedSpread: 20 + index,
+        priceSpread: 0.2,
+        score: 70,
+        exchangeCount: 2
+      })
+    );
+    await writeFile(join(historyDir, "opportunities-2026-06-04.jsonl"), `${rows.join("\n")}\n`, "utf8");
+
+    const result = await queryAllOpportunityHistory({ historyDir, limit: 10 });
+
+    expect(result.map((row) => row.symbol)).toEqual(["BTC/USDT", "ETH/USDT"]);
   });
 
   it("removes history shards older than the retention window when saving", async () => {

@@ -28,6 +28,7 @@ export type OpportunityHistoryRecord = {
   type: "cross-exchange" | "spot-perp";
   symbol: string;
   timestamp: number;
+  annualized?: number;
   annualizedRate?: number;
   annualizedSpread?: number;
   priceSpread: number;
@@ -91,6 +92,13 @@ export async function queryOpportunityHistory(
   return filterAndLimitRows(rows, symbol, options).sort(sortByTimestampThenType);
 }
 
+export async function queryAllOpportunityHistory(
+  options: Pick<HistoryStoreOptions, "opportunityHistoryPath" | "historyDir" | "limit" | "from" | "to"> = {}
+): Promise<OpportunityHistoryRecord[]> {
+  const rows = await readHistoryRecords<OpportunityHistoryRecord>("opportunities", options);
+  return filterAndLimitRows(rows, undefined, options).sort(sortByTimestampThenType);
+}
+
 function toFundingHistoryRecord(market: FundingMarket, timestamp: number): FundingHistoryRecord {
   return {
     exchange: market.exchange,
@@ -126,6 +134,7 @@ function buildCrossOpportunityHistory(markets: FundingMarket[], timestamp: numbe
       type: "cross-exchange" as const,
       symbol: opportunity.symbol,
       timestamp,
+      annualized: opportunity.annualizedSpread,
       annualizedSpread: opportunity.annualizedSpread,
       priceSpread: opportunity.priceSpread,
       score: opportunity.score,
@@ -162,6 +171,7 @@ function buildSpotPerpOpportunityHistory(
       type: "spot-perp" as const,
       symbol: opportunity.symbol,
       timestamp,
+      annualized: opportunity.annualized,
       annualizedRate: opportunity.annualized,
       priceSpread: opportunity.priceSpread,
       score: opportunity.score,
@@ -267,12 +277,12 @@ function parseJsonLine<T>(line: string): T | null {
 
 function filterAndLimitRows<T extends { symbol: string; timestamp: number }>(
   rows: T[],
-  symbol: string,
+  symbol: string | undefined,
   options: Pick<HistoryStoreOptions, "limit" | "from" | "to">
 ): T[] {
   const limit = normalizeLimit(options.limit);
   return rows
-    .filter((row) => row.symbol === symbol)
+    .filter((row) => symbol === undefined || row.symbol === symbol)
     .filter((row) => options.from === undefined || row.timestamp >= options.from)
     .filter((row) => options.to === undefined || row.timestamp <= options.to)
     .sort((a, b) => b.timestamp - a.timestamp)
