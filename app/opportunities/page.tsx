@@ -8,10 +8,21 @@ import type { UnifiedOpportunity, UnifiedOpportunityFilters, UnifiedOpportunityS
 import { filterUnifiedOpportunities, isHighRiskUnifiedOpportunity, isRecommendedUnifiedOpportunity } from "@/lib/opportunities/unifiedOpportunities";
 import type { ExchangeName } from "@/lib/exchanges/types";
 
+type SourceSnapshotMeta = {
+  fundingMarketCount: number;
+  spotMarketCount: number;
+  crossCount: number;
+  spotPerpCount: number;
+  basisCount: number;
+  unifiedCount: number;
+  errors: string[];
+};
+
 type OpportunitiesApiResponse = {
   data: UnifiedOpportunity[];
   errors?: string[];
   updatedAt: number;
+  meta?: SourceSnapshotMeta;
 };
 
 const TYPES: Array<"all" | UnifiedOpportunityType> = ["all", "CrossExchange", "SpotPerp", "Basis"];
@@ -27,6 +38,7 @@ const SORT_OPTIONS: Array<{ label: string; value: UnifiedOpportunitySortBy }> = 
 export default function OpportunitiesPage() {
   const [rows, setRows] = useState<UnifiedOpportunity[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [meta, setMeta] = useState<SourceSnapshotMeta | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -46,6 +58,7 @@ export default function OpportunitiesPage() {
       const payload = (await response.json()) as OpportunitiesApiResponse;
       setRows(payload.data ?? []);
       setErrors(payload.errors ?? []);
+      setMeta(payload.meta ?? null);
       setUpdatedAt(payload.updatedAt ?? Date.now());
     } finally {
       setLoading(false);
@@ -122,6 +135,15 @@ export default function OpportunitiesPage() {
           <StatCard label="Highest Score" value={stats.highestScore.toLocaleString()} tone="green" />
           <StatCard label="Highest Annualized" value={`${formatPercent(stats.highestAnnualized)}%`} tone="yellow" />
           <StatCard label="High Risk" value={stats.highRisk.toLocaleString()} tone="orange" />
+        </section>
+
+        <section className="grid gap-2 border-y border-slate-800 bg-slate-950/30 py-3 text-xs text-slate-400 md:grid-cols-3 xl:grid-cols-6">
+          <MetaItem label="Funding Markets" value={meta?.fundingMarketCount} />
+          <MetaItem label="Spot Markets" value={meta?.spotMarketCount} />
+          <MetaItem label="Cross" value={meta?.crossCount} />
+          <MetaItem label="Spot/Perp" value={meta?.spotPerpCount} />
+          <MetaItem label="Basis" value={meta?.basisCount} />
+          <MetaItem label="Unified" value={meta?.unifiedCount} />
         </section>
 
         <section className="border border-slate-800 bg-slate-950/40 p-4">
@@ -301,6 +323,15 @@ function StatCard({ label, tone = "slate", value }: { label: string; tone?: "sla
     <div className="border border-slate-800 bg-slate-950/50 p-4">
       <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
       <p className={`mt-2 text-2xl font-semibold ${toneClass}`}>{value}</p>
+    </div>
+  );
+}
+
+function MetaItem({ label, value }: { label: string; value: number | undefined }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border border-slate-800 bg-slate-950/50 px-3 py-2">
+      <span>{label}</span>
+      <span className="font-semibold text-slate-100 tabular-nums">{value?.toLocaleString() ?? "-"}</span>
     </div>
   );
 }

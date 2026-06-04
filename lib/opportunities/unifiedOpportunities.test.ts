@@ -17,13 +17,13 @@ const cross: CrossExchangeOpportunity = {
   fundingRates: {},
   fundingIntervalHours: {},
   annualizedSpread: 45,
-  direction: "空 Bybit / 多 Binance",
+  direction: "Short Bybit / Long Binance",
   shortExchange: "Bybit",
   longExchange: "Binance",
   exchangeCount: 2,
   score: 72,
   riskTags: [],
-  opportunityReason: "Bybit 年化高于 Binance",
+  opportunityReason: "Bybit annualized funding is above Binance",
   priceSpread: 0.4,
   priceSpreadDirection: "Short Bybit mark is above Binance",
   nextFundingTime: 10_000,
@@ -40,7 +40,7 @@ const spotPerp: SpotPerpOpportunity = {
   exchangeCount: 1,
   score: 58,
   riskTags: ["持仓量缺失"],
-  opportunityReason: "OKX 买现货 / 空永续",
+  opportunityReason: "OKX spot / perp",
   fundingRate: 0.0002,
   annualized: 21.9,
   spotPrice: 3000,
@@ -68,7 +68,7 @@ const basis: BasisOpportunity = {
   nextFundingTime: 30_000,
   score: 80,
   riskTags: ["基差过大"],
-  opportunityReason: "Binance 买现货 / 空永续"
+  opportunityReason: "Binance spot / perp basis"
 };
 
 describe("unifiedOpportunities", () => {
@@ -117,5 +117,39 @@ describe("unifiedOpportunities", () => {
     });
 
     expect(filtered.map((row) => row.symbol)).toEqual(["SOL/USDT", "BTC/USDT"]);
+  });
+
+  it("does not mutate source arrays while building unified opportunities", () => {
+    const crossRows = [cross];
+    const spotPerpRows = [spotPerp];
+    const basisRows = [basis];
+    const originalCross = crossRows.slice();
+    const originalSpotPerp = spotPerpRows.slice();
+    const originalBasis = basisRows.slice();
+
+    buildUnifiedOpportunities({ cross: crossRows, spotPerp: spotPerpRows, basis: basisRows });
+
+    expect(crossRows).toEqual(originalCross);
+    expect(spotPerpRows).toEqual(originalSpotPerp);
+    expect(basisRows).toEqual(originalBasis);
+  });
+
+  it("filters recommended opportunities and hides high risk rows", () => {
+    const rows = buildUnifiedOpportunities({ cross: [cross], spotPerp: [spotPerp], basis: [basis] });
+    const recommended = filterUnifiedOpportunities(rows, { recommendedOnly: true });
+    const withoutHighRisk = filterUnifiedOpportunities(
+      [
+        ...rows,
+        {
+          ...rows[0],
+          id: "risky",
+          riskTags: ["低流动性"]
+        }
+      ],
+      { hideHighRisk: true }
+    );
+
+    expect(recommended.map((row) => row.symbol)).toEqual(["SOL/USDT", "BTC/USDT"]);
+    expect(withoutHighRisk.some((row) => row.id === "risky")).toBe(false);
   });
 });

@@ -1,14 +1,22 @@
-import { getBasisOpportunitiesResponse } from "../basis/basisApi";
-import { getCrossExchangeOpportunities, getFundingSnapshot, getSpotPerpOpportunities } from "../data/fundingService";
-import type { BasisOpportunity } from "../basis/types";
-import type { CrossExchangeOpportunity, SpotPerpOpportunity } from "../exchanges/types";
+import { buildBasisOpportunities } from "../basis/basisCalculations";
+import { buildCrossExchangeOpportunities, buildSpotPerpOpportunities, getFundingSnapshot } from "../data/fundingService";
+import type { FundingMarket, SpotMarket } from "../exchanges/types";
 import { buildUnifiedOpportunities } from "./unifiedOpportunities";
 import type { UnifiedOpportunity } from "./types";
 
-export type UnifiedOpportunitySourcePayload = {
-  cross: CrossExchangeOpportunity[];
-  spotPerp: SpotPerpOpportunity[];
-  basis: BasisOpportunity[];
+export type UnifiedOpportunitySnapshot = {
+  fundingMarkets: FundingMarket[];
+  spotMarkets: SpotMarket[];
+  errors: Array<string | undefined>;
+};
+
+export type SourceSnapshotMeta = {
+  fundingMarketCount: number;
+  spotMarketCount: number;
+  crossCount: number;
+  spotPerpCount: number;
+  basisCount: number;
+  unifiedCount: number;
   errors: string[];
 };
 
@@ -16,38 +24,37 @@ export type UnifiedOpportunitiesApiResponse = {
   data: UnifiedOpportunity[];
   errors: string[];
   updatedAt: number;
+  meta: SourceSnapshotMeta;
 };
 
 export type UnifiedOpportunitiesApiOptions = {
-  sourceLoader?: () => Promise<UnifiedOpportunitySourcePayload>;
+  snapshotLoader?: () => Promise<UnifiedOpportunitySnapshot>;
   now?: number;
 };
 
 export async function getUnifiedOpportunitiesResponse(
   options: UnifiedOpportunitiesApiOptions = {}
 ): Promise<UnifiedOpportunitiesApiResponse> {
-  const now = options.now ?? Date.now();
-  const sources = await (options.sourceLoader ?? loadUnifiedOpportunitySources)();
+  const updatedAt = options.now ?? Date.now();
+  const snapshot = await (options.snapshotLoader ?? getFundingSnapshot)();
+  const errors = snapshot.errors.filter((error): error is string => Boolean(error));
+  const cross = buildCrossExchangeOpportunities(snapshot.fundingMarkets);
+  const spotPerp = buildSpotPerpOpportunities(snapshot.spotMarkets, snapshot.fundingMarkets);
+  const basis = buildBasisOpportunities(snapshot.spotMarkets, snapshot.fundingMarkets, updatedAt);
+  const data = buildUnifiedOpportunities({ cross, spotPerp, basis });
 
   return {
-    data: buildUnifiedOpportunities(sources),
-    errors: sources.errors.filter((error): error is string => Boolean(error)),
-    updatedAt: now
-  };
-}
-
-async function loadUnifiedOpportunitySources(): Promise<UnifiedOpportunitySourcePayload> {
-  const [cross, spotPerp, basisResponse, snapshot] = await Promise.all([
-    getCrossExchangeOpportunities(),
-    getSpotPerpOpportunities(),
-    getBasisOpportunitiesResponse(),
-    getFundingSnapshot()
-  ]);
-
-  return {
-    cross,
-    spotPerp,
-    basis: basisResponse.data,
-    errors: [...snapshot.errors, ...basisResponse.errors].filter((error): error is string => Boolean(error))
+    data,
+    errors,
+    updatedAt,
+    meta: {
+      fundingMarketCount: snapshot.fundingMarkets.length,
+      spotMarketCount: snapshot.spotMarkets.length,
+      crossCount: cross.length,
+      spotPerpCount: spotPerp.length,
+      basisCount: basis.length,
+      unifiedCount: data.length,
+      errors
+    }
   };
 }

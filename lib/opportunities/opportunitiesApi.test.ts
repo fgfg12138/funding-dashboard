@@ -1,48 +1,76 @@
 import { describe, expect, it } from "vitest";
 import { getUnifiedOpportunitiesResponse } from "./opportunitiesApi";
+import type { FundingMarket, SpotMarket } from "../exchanges/types";
+
+const fundingMarkets: FundingMarket[] = [
+  {
+    exchange: "Binance",
+    rawSymbol: "BTCUSDT",
+    symbol: "BTC/USDT",
+    base: "BTC",
+    quote: "USDT",
+    fundingRate: 0.0003,
+    fundingIntervalHours: 8,
+    nextFundingTime: 12_345,
+    markPrice: 100_300,
+    volume24h: 10_000_000,
+    openInterestUsd: 20_000_000
+  },
+  {
+    exchange: "Bybit",
+    rawSymbol: "BTCUSDT",
+    symbol: "BTC/USDT",
+    base: "BTC",
+    quote: "USDT",
+    fundingRate: -0.0001,
+    fundingIntervalHours: 8,
+    nextFundingTime: 12_345,
+    markPrice: 100_000,
+    volume24h: 12_000_000,
+    openInterestUsd: 22_000_000
+  }
+];
+
+const spotMarkets: SpotMarket[] = [
+  {
+    exchange: "Binance",
+    symbol: "BTC/USDT",
+    base: "BTC",
+    quote: "USDT",
+    price: 100_000,
+    volume24h: 11_000_000
+  }
+];
 
 describe("opportunitiesApi", () => {
-  it("returns API envelope with unified opportunities", async () => {
+  it("uses one snapshot loader call and returns meta counts", async () => {
+    let snapshotLoaderCalls = 0;
     const response = await getUnifiedOpportunitiesResponse({
-      sourceLoader: async () => ({
-        cross: [],
-        spotPerp: [],
-        basis: [
-          {
-            symbol: "BTC/USDT",
-            base: "BTC",
-            quote: "USDT",
-            spotExchange: "Binance",
-            perpExchange: "Binance",
-            spotPrice: 100_000,
-            perpPrice: 100_300,
-            basisPercent: 0.3,
-            fundingRate: 0.0003,
-            annualizedFundingRate: 32.85,
-            estimatedCarryAnnualized: 32.55,
-            volume24h: 10_000_000,
-            openInterestUsd: 20_000_000,
-            nextFundingTime: 12_345,
-            score: 70,
-            riskTags: [],
-            opportunityReason: "Binance 买现货 / 空永续"
-          }
-        ],
-        errors: []
-      }),
+      snapshotLoader: async () => {
+        snapshotLoaderCalls += 1;
+        return {
+          fundingMarkets,
+          spotMarkets,
+          errors: ["partial exchange warning"]
+        };
+      },
       now: 999
     });
 
+    expect(snapshotLoaderCalls).toBe(1);
     expect(response).toMatchObject({
-      data: [
-        {
-          id: "Basis:Binance:Binance:BTC/USDT",
-          opportunityType: "Basis",
-          symbol: "BTC/USDT"
-        }
-      ],
-      errors: [],
-      updatedAt: 999
+      errors: ["partial exchange warning"],
+      updatedAt: 999,
+      meta: {
+        fundingMarketCount: 2,
+        spotMarketCount: 1,
+        crossCount: 1,
+        spotPerpCount: 1,
+        basisCount: 1,
+        unifiedCount: 3,
+        errors: ["partial exchange warning"]
+      }
     });
+    expect(response.data.map((row) => row.opportunityType).sort()).toEqual(["Basis", "CrossExchange", "SpotPerp"]);
   });
 });
