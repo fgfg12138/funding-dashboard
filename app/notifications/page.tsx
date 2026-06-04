@@ -48,6 +48,9 @@ export default async function NotificationsPage({
             <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/simulation">
               Simulation
             </Link>
+            <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/strategies">
+              Strategies
+            </Link>
             <NotificationEvaluateButton />
           </div>
         </header>

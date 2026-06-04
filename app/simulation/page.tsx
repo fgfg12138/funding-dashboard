@@ -35,6 +35,9 @@ export default async function SimulationPage({
             <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/dashboard">
               Dashboard
             </Link>
+            <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/strategies">
+              Strategies
+            </Link>
             <SimulationRunButton />
           </div>
         </header>
