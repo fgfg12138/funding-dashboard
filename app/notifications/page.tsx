@@ -54,6 +54,9 @@ export default async function NotificationsPage({
             <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/risk-rules">
               Risk Rules
             </Link>
+            <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/adl-monitor">
+              ADL Monitor
+            </Link>
             <NotificationEvaluateButton />
           </div>
         </header>
