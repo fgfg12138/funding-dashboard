@@ -2,7 +2,7 @@ import Link from "next/link";
 import { queryAllOpportunityHistory } from "@/lib/data/historyStore";
 import {
   buildOpportunityResearch,
-  type OpportunityLifecycle,
+  type OpportunityResearchFilters,
   type OpportunityResearchResult
 } from "@/lib/research/opportunityValidation";
 
@@ -14,18 +14,27 @@ const DEFAULT_LIMIT = 12;
 export default async function ResearchPage({
   searchParams
 }: {
-  searchParams: Promise<{ window?: string; limit?: string }>;
+  searchParams: Promise<{
+    window?: string;
+    limit?: string;
+    minLatestAnnualized?: string;
+    minSurvivalHours?: string;
+    maxAnnualizedDecay?: string;
+    maxAbsPriceSpreadChange?: string;
+    type?: string;
+  }>;
 }) {
   const params = await searchParams;
   const windowHours = parseWindowHours(params.window);
   const limit = parsePositiveInt(params.limit) ?? DEFAULT_LIMIT;
+  const filters = parseFilters(params);
   const now = Date.now();
   const rows = await queryAllOpportunityHistory({
     from: now - windowHours * 60 * 60_000,
     to: now,
     limit: 5000
   });
-  const research = buildOpportunityResearch(rows, { now, windowHours, limit });
+  const research = buildOpportunityResearch(rows, { now, windowHours, limit, filters });
 
   return (
     <main className="min-h-screen bg-surface px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
@@ -46,7 +55,7 @@ export default async function ResearchPage({
             {[1, 4, 8, 24].map((hours) => (
               <Link
                 className={`h-8 px-3 py-1.5 text-sm ${windowHours === hours ? "bg-cyan-400/20 text-cyan-100" : "text-slate-400 hover:text-slate-100"}`}
-                href={`/research?window=${hours}h&limit=${limit}`}
+                href={buildResearchHref(params, { window: `${hours}h`, limit: String(limit) })}
                 key={hours}
               >
                 {hours}h
@@ -59,6 +68,41 @@ export default async function ResearchPage({
             <span>Updated {new Date(research.generatedAt).toLocaleTimeString()}</span>
           </div>
         </section>
+
+        <form className="grid gap-3 border-b border-slate-800 pb-4 lg:grid-cols-6" action="/research">
+          <input name="window" type="hidden" value={`${windowHours}h`} />
+          <FilterInput defaultValue={params.minLatestAnnualized ?? "30"} label="Min latest annualized" name="minLatestAnnualized" />
+          <FilterInput defaultValue={params.minSurvivalHours ?? "4"} label="Min survival hours" name="minSurvivalHours" />
+          <FilterInput defaultValue={params.maxAnnualizedDecay ?? "30"} label="Max annualized decay" name="maxAnnualizedDecay" />
+          <FilterInput defaultValue={params.maxAbsPriceSpreadChange ?? ""} label="Max abs spread change" name="maxAbsPriceSpreadChange" />
+          <label className="block">
+            <span className="mb-1 block text-xs text-slate-500">Type</span>
+            <select
+              className="h-10 w-full rounded border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
+              defaultValue={filters.type ?? "all"}
+              name="type"
+            >
+              <option value="all">all</option>
+              <option value="cross-exchange">cross-exchange</option>
+              <option value="spot-perp">spot-perp</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs text-slate-500">Limit</span>
+            <div className="flex gap-2">
+              <input
+                className="h-10 min-w-0 flex-1 rounded border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
+                defaultValue={String(limit)}
+                min="1"
+                name="limit"
+                type="number"
+              />
+              <button className="h-10 rounded border border-cyan-400/50 bg-cyan-400/10 px-3 text-sm text-cyan-100 hover:bg-cyan-400/20" type="submit">
+                Apply
+              </button>
+            </div>
+          </label>
+        </form>
 
         <section className="grid gap-4 xl:grid-cols-3">
           <ResearchTable rows={research.topStable} title="Top Stable Opportunities" />
@@ -82,11 +126,16 @@ function ResearchTable({ rows, title }: { rows: OpportunityResearchResult["topSt
           <thead className="bg-slate-950 text-slate-400">
             <tr>
               <Header>Symbol</Header>
+              <Header>Type</Header>
+              <Header>Pair</Header>
               <Header>Quality</Header>
               <Header>Survival</Header>
               <Header>Latest</Header>
               <Header>Decay</Header>
-              <Header>Spread Δ</Header>
+              <Header>Spread Change</Header>
+              <Header>First seen</Header>
+              <Header>Latest seen</Header>
+              <Header>Snapshots</Header>
             </tr>
           </thead>
           <tbody>
@@ -98,6 +147,8 @@ function ResearchTable({ rows, title }: { rows: OpportunityResearchResult["topSt
                     {row.label}
                   </div>
                 </Cell>
+                <Cell>{row.type}</Cell>
+                <Cell>{row.exchangePair}</Cell>
                 <Cell>
                   <Score value={row.qualityScore} />
                 </Cell>
@@ -109,11 +160,14 @@ function ResearchTable({ rows, title }: { rows: OpportunityResearchResult["topSt
                 <Cell>
                   <SignedPercent value={row.priceSpreadChange} />
                 </Cell>
+                <Cell>{formatTime(row.firstTimestamp)}</Cell>
+                <Cell>{formatTime(row.latestTimestamp)}</Cell>
+                <Cell>{row.snapshotCount}</Cell>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td className="px-3 py-8 text-center text-slate-500" colSpan={6}>
+                <td className="px-3 py-8 text-center text-slate-500" colSpan={11}>
                   No research rows yet. Let the dashboard collect more opportunity snapshots.
                 </td>
               </tr>
@@ -122,6 +176,21 @@ function ResearchTable({ rows, title }: { rows: OpportunityResearchResult["topSt
         </table>
       </div>
     </section>
+  );
+}
+
+function FilterInput({ defaultValue, label, name }: { defaultValue: string; label: string; name: string }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs text-slate-500">{label}</span>
+      <input
+        className="h-10 w-full rounded border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
+        defaultValue={defaultValue}
+        name={name}
+        step="0.01"
+        type="number"
+      />
+    </label>
   );
 }
 
@@ -152,6 +221,15 @@ function formatHours(value: number) {
   return `${value.toFixed(value % 1 === 0 ? 0 : 1)}h`;
 }
 
+function formatTime(value: number) {
+  return new Date(value).toLocaleString(undefined, {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
 function parseWindowHours(value?: string): 1 | 4 | 8 | 24 {
   if (value === "1" || value === "1h") return 1;
   if (value === "4" || value === "4h") return 4;
@@ -164,4 +242,46 @@ function parsePositiveInt(value?: string): number | undefined {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
   return Math.floor(parsed);
+}
+
+function parseFilters(params: {
+  minLatestAnnualized?: string;
+  minSurvivalHours?: string;
+  maxAnnualizedDecay?: string;
+  maxAbsPriceSpreadChange?: string;
+  type?: string;
+}): OpportunityResearchFilters {
+  return {
+    minLatestAnnualized: parseNumber(params.minLatestAnnualized),
+    minSurvivalHours: parseNumber(params.minSurvivalHours),
+    maxAnnualizedDecay: parseNumber(params.maxAnnualizedDecay),
+    maxAbsPriceSpreadChange: parseNumber(params.maxAbsPriceSpreadChange),
+    type: parseType(params.type)
+  };
+}
+
+function parseNumber(value?: string): number | undefined {
+  if (value === undefined || value.trim() === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function parseType(value?: string): OpportunityResearchFilters["type"] {
+  if (value === "cross-exchange" || value === "spot-perp") return value;
+  return "all";
+}
+
+function buildResearchHref(
+  params: Record<string, string | undefined>,
+  overrides: Record<string, string | undefined>
+) {
+  const next = new URLSearchParams();
+
+  for (const [key, value] of Object.entries({ ...params, ...overrides })) {
+    if (value !== undefined && value !== "") {
+      next.set(key, value);
+    }
+  }
+
+  return `/research?${next.toString()}`;
 }

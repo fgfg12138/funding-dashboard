@@ -6,6 +6,15 @@ export type OpportunityValidationOptions = {
   now?: number;
   windowHours?: 1 | 4 | 8 | 24 | number;
   limit?: number;
+  filters?: OpportunityResearchFilters;
+};
+
+export type OpportunityResearchFilters = {
+  minLatestAnnualized?: number;
+  minSurvivalHours?: number;
+  maxAnnualizedDecay?: number;
+  maxAbsPriceSpreadChange?: number;
+  type?: "all" | OpportunityHistoryRecord["type"];
 };
 
 export type OpportunityLifecycle = {
@@ -13,6 +22,7 @@ export type OpportunityLifecycle = {
   type: OpportunityHistoryRecord["type"];
   symbol: string;
   label: string;
+  exchangePair: string;
   direction?: string;
   survivalHours: number;
   maxAnnualized: number;
@@ -70,19 +80,21 @@ export function buildOpportunityResearch(
   const windowHours = options.windowHours ?? 24;
   const generatedAt = options.now ?? Date.now();
   const lifecycles = analyzeOpportunityLifecycles(rows, { ...options, now: generatedAt, windowHours });
+  const filteredLifecycles = applyLifecycleFilters(lifecycles, options.filters);
+  const stableLifecycles = applyLifecycleFilters(lifecycles, getStableFilters(options.filters));
 
   return {
     windowHours,
     generatedAt,
-    topStable: lifecycles
+    topStable: stableLifecycles
       .slice()
       .sort((a, b) => b.qualityScore - a.qualityScore || a.annualizedDecay - b.annualizedDecay)
       .slice(0, limit),
-    topDecayed: lifecycles
+    topDecayed: filteredLifecycles
       .slice()
       .sort((a, b) => b.annualizedDecay - a.annualizedDecay || b.latestAnnualized - a.latestAnnualized)
       .slice(0, limit),
-    longestSurvival: lifecycles
+    longestSurvival: filteredLifecycles
       .slice()
       .sort((a, b) => b.survivalHours - a.survivalHours || b.qualityScore - a.qualityScore)
       .slice(0, limit)
@@ -118,6 +130,7 @@ function buildLifecycle(id: string, rows: OpportunityHistoryRecord[], windowHour
     type: latest.type,
     symbol: latest.symbol,
     label: getOpportunityLabel(latest),
+    exchangePair: getExchangePair(latest),
     direction: latest.direction,
     survivalHours,
     maxAnnualized: Math.max(...annualizedValues),
@@ -141,6 +154,35 @@ function buildLifecycle(id: string, rows: OpportunityHistoryRecord[], windowHour
   };
 }
 
+function applyLifecycleFilters(
+  lifecycles: OpportunityLifecycle[],
+  filters: OpportunityResearchFilters | undefined
+): OpportunityLifecycle[] {
+  if (!filters) {
+    return lifecycles;
+  }
+
+  return lifecycles
+    .filter((item) => filters.type === undefined || filters.type === "all" || item.type === filters.type)
+    .filter((item) => filters.minLatestAnnualized === undefined || item.latestAnnualized >= filters.minLatestAnnualized)
+    .filter((item) => filters.minSurvivalHours === undefined || item.survivalHours >= filters.minSurvivalHours)
+    .filter((item) => filters.maxAnnualizedDecay === undefined || item.annualizedDecay <= filters.maxAnnualizedDecay)
+    .filter(
+      (item) =>
+        filters.maxAbsPriceSpreadChange === undefined ||
+        Math.abs(item.priceSpreadChange) <= filters.maxAbsPriceSpreadChange
+    );
+}
+
+function getStableFilters(filters: OpportunityResearchFilters | undefined): OpportunityResearchFilters {
+  return {
+    ...filters,
+    minLatestAnnualized: filters?.minLatestAnnualized ?? 30,
+    minSurvivalHours: filters?.minSurvivalHours ?? 4,
+    maxAnnualizedDecay: filters?.maxAnnualizedDecay ?? 30
+  };
+}
+
 function getOpportunityIdentity(row: OpportunityHistoryRecord): string {
   if (row.type === "cross-exchange") {
     return [row.type, row.symbol, row.shortExchange ?? "-", row.longExchange ?? "-"].join(":");
@@ -155,6 +197,14 @@ function getOpportunityLabel(row: OpportunityHistoryRecord): string {
   }
 
   return `${row.spotExchange ?? "-"} spot + ${row.perpExchange ?? "-"} perp`;
+}
+
+function getExchangePair(row: OpportunityHistoryRecord): string {
+  if (row.type === "cross-exchange") {
+    return `${row.shortExchange ?? "-"} / ${row.longExchange ?? "-"}`;
+  }
+
+  return `${row.spotExchange ?? "-"} / ${row.perpExchange ?? "-"}`;
 }
 
 function groupBy<T>(items: T[], keyFn: (item: T) => string): Map<string, T[]> {

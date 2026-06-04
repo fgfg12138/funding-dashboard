@@ -127,4 +127,50 @@ describe("opportunity validation", () => {
     expect(research.longestSurvival[0].survivalHours).toBe(24);
     expect(research.topStable).toHaveLength(2);
   });
+
+  it("applies default stable filters without hiding decayed opportunities", () => {
+    const rows = [
+      cross("GOOD/USDT", 80, 0.2, 80, NOW - 8 * HOUR),
+      cross("GOOD/USDT", 70, 0.25, 82, NOW),
+      cross("LOW/USDT", 25, 0.2, 90, NOW - 8 * HOUR, ["OKX", "Binance"]),
+      cross("LOW/USDT", 24, 0.25, 90, NOW, ["OKX", "Binance"]),
+      cross("SHORT/USDT", 90, 0.2, 90, NOW - 2 * HOUR, ["Bybit", "OKX"]),
+      cross("SHORT/USDT", 88, 0.25, 90, NOW, ["Bybit", "OKX"]),
+      cross("DECAY/USDT", 120, 0.2, 70, NOW - 8 * HOUR),
+      cross("DECAY/USDT", 50, 0.25, 70, NOW)
+    ];
+
+    const research = buildOpportunityResearch(rows, { now: NOW, windowHours: 24, limit: 10 });
+
+    expect(research.topStable.map((row) => row.symbol)).toEqual(["GOOD/USDT"]);
+    expect(research.topDecayed[0].symbol).toBe("DECAY/USDT");
+  });
+
+  it("filters research lists by annualized, survival, decay, price spread change, and type", () => {
+    const rows = [
+      cross("BTC/USDT", 90, 0.2, 82, NOW - 8 * HOUR),
+      cross("BTC/USDT", 70, 0.5, 82, NOW),
+      spot("ETH/USDT", 60, 0.1, 80, NOW - 8 * HOUR),
+      spot("ETH/USDT", 58, 0.2, 80, NOW),
+      spot("SOL/USDT", 40, 0.1, 70, NOW - 2 * HOUR),
+      spot("SOL/USDT", 39, 0.2, 70, NOW)
+    ];
+
+    const research = buildOpportunityResearch(rows, {
+      now: NOW,
+      windowHours: 24,
+      limit: 10,
+      filters: {
+        type: "spot-perp",
+        minLatestAnnualized: 50,
+        minSurvivalHours: 4,
+        maxAnnualizedDecay: 5,
+        maxAbsPriceSpreadChange: 0.2
+      }
+    });
+
+    expect(research.topStable.map((row) => row.symbol)).toEqual(["ETH/USDT"]);
+    expect(research.topDecayed.map((row) => row.symbol)).toEqual(["ETH/USDT"]);
+    expect(research.longestSurvival.map((row) => row.symbol)).toEqual(["ETH/USDT"]);
+  });
 });

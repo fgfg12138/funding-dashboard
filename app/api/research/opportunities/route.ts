@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryAllOpportunityHistory } from "@/lib/data/historyStore";
-import { buildOpportunityResearch } from "@/lib/research/opportunityValidation";
+import { buildOpportunityResearch, type OpportunityResearchFilters } from "@/lib/research/opportunityValidation";
 
 export const runtime = "nodejs";
 
@@ -15,9 +15,32 @@ export async function GET(request: NextRequest) {
   });
 
   return NextResponse.json({
-    data: buildOpportunityResearch(rows, { now, windowHours, limit }),
+    data: buildOpportunityResearch(rows, {
+      now,
+      windowHours,
+      limit,
+      filters: parseFilters(request)
+    }),
     updatedAt: now
   });
+}
+
+function parseFilters(request: NextRequest): OpportunityResearchFilters {
+  return {
+    minLatestAnnualized: parseNumberParam(request.nextUrl.searchParams.get("minLatestAnnualized")),
+    minSurvivalHours: parseNumberParam(request.nextUrl.searchParams.get("minSurvivalHours")),
+    maxAnnualizedDecay: parseNumberParam(request.nextUrl.searchParams.get("maxAnnualizedDecay")),
+    maxAbsPriceSpreadChange: parseNumberParam(request.nextUrl.searchParams.get("maxAbsPriceSpreadChange")),
+    type: parseTypeParam(request.nextUrl.searchParams.get("type"))
+  };
+}
+
+function parseTypeParam(value: string | null): OpportunityResearchFilters["type"] {
+  if (value === "cross-exchange" || value === "spot-perp") {
+    return value;
+  }
+
+  return "all";
 }
 
 function parseWindowHours(value: string | null): 1 | 4 | 8 | 24 {
