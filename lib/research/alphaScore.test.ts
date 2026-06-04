@@ -63,6 +63,15 @@ describe("alpha discovery", () => {
     expect(classifyAlpha(sample({ fundingVolatility: 110, annualizedDecay: 70 }))).toBe("Risky Alpha");
   });
 
+  it("classifies high volatility or high decay as risky alpha", () => {
+    expect(classifyAlpha(sample({ fundingVolatility: 90, annualizedDecay: 5 }))).toBe("Risky Alpha");
+    expect(classifyAlpha(sample({ fundingVolatility: 20, annualizedDecay: 55 }))).toBe("Risky Alpha");
+  });
+
+  it("keeps emerging alpha based on negative annualized decay", () => {
+    expect(classifyAlpha(sample({ survivalHours: 1, annualizedDecay: -10, fundingVolatility: 79 }))).toBe("Emerging Alpha");
+  });
+
   it("sorts top alpha and type-specific lists by alpha score", () => {
     const discovery = buildAlphaDiscovery({
       samples: [

@@ -91,7 +91,7 @@ export function gradeAlphaScore(score: number): AlphaGrade {
 }
 
 export function classifyAlpha(sample: FundingFactorSample): AlphaType {
-  if (sample.fundingVolatility >= 80 && sample.annualizedDecay >= 50) {
+  if (sample.fundingVolatility >= 80 || sample.annualizedDecay >= 50) {
     return "Risky Alpha";
   }
   if (sample.survivalHours >= 8 && sample.annualizedDecay <= 15) {
