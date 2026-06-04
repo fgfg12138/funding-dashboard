@@ -129,6 +129,9 @@ export default function DashboardPage() {
           <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/basis">
             Basis
           </Link>
+          <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/opportunities">
+            Opportunities
+          </Link>
           <button
             className="inline-flex h-10 items-center justify-center gap-2 rounded border border-cyan-400/50 bg-cyan-400/10 px-4 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-wait disabled:opacity-60"
             disabled={loading}

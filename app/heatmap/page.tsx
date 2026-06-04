@@ -49,6 +49,9 @@ export default async function HeatmapPage({
             <Link className="text-cyan-300 hover:text-cyan-100" href="/basis">
               Basis
             </Link>
+            <Link className="text-cyan-300 hover:text-cyan-100" href="/opportunities">
+              Opportunities
+            </Link>
             <Link className="text-cyan-300 hover:text-cyan-100" href="/dashboard">
               Back to dashboard
             </Link>

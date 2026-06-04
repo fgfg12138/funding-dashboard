@@ -4,34 +4,46 @@ import { RefreshCw, Search } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { BasisOpportunity } from "@/lib/basis/types";
+import type { UnifiedOpportunity, UnifiedOpportunityFilters, UnifiedOpportunitySortBy, UnifiedOpportunityType } from "@/lib/opportunities/types";
+import { filterUnifiedOpportunities, isHighRiskUnifiedOpportunity, isRecommendedUnifiedOpportunity } from "@/lib/opportunities/unifiedOpportunities";
 import type { ExchangeName } from "@/lib/exchanges/types";
 
-type BasisApiResponse = {
-  data: BasisOpportunity[];
+type OpportunitiesApiResponse = {
+  data: UnifiedOpportunity[];
   errors?: string[];
   updatedAt: number;
 };
 
+const TYPES: Array<"all" | UnifiedOpportunityType> = ["all", "CrossExchange", "SpotPerp", "Basis"];
 const EXCHANGES: Array<"all" | ExchangeName> = ["all", "Binance", "OKX", "Bybit"];
+const SORT_OPTIONS: Array<{ label: string; value: UnifiedOpportunitySortBy }> = [
+  { label: "Score", value: "score" },
+  { label: "Annualized", value: "annualized" },
+  { label: "Estimated Carry", value: "estimatedCarry" },
+  { label: "Volume", value: "volume" },
+  { label: "Next Funding", value: "nextFunding" }
+];
 
-export default function BasisPage() {
-  const [rows, setRows] = useState<BasisOpportunity[]>([]);
+export default function OpportunitiesPage() {
+  const [rows, setRows] = useState<UnifiedOpportunity[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [opportunityType, setOpportunityType] = useState<"all" | UnifiedOpportunityType>("all");
   const [exchange, setExchange] = useState<"all" | ExchangeName>("all");
+  const [minScore, setMinScore] = useState(0);
   const [minAnnualized, setMinAnnualized] = useState(0);
-  const [minVolume, setMinVolume] = useState(1_000_000);
-  const [maxAbsBasis, setMaxAbsBasis] = useState(2);
+  const [minVolume24h, setMinVolume24h] = useState(1_000_000);
   const [recommendedOnly, setRecommendedOnly] = useState(false);
+  const [hideHighRisk, setHideHighRisk] = useState(false);
+  const [sortBy, setSortBy] = useState<UnifiedOpportunitySortBy>("score");
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/basis/opportunities", { cache: "no-store" });
-      const payload = (await response.json()) as BasisApiResponse;
+      const response = await fetch("/api/opportunities", { cache: "no-store" });
+      const payload = (await response.json()) as OpportunitiesApiResponse;
       setRows(payload.data ?? []);
       setErrors(payload.errors ?? []);
       setUpdatedAt(payload.updatedAt ?? Date.now());
@@ -46,19 +58,29 @@ export default function BasisPage() {
     return () => window.clearInterval(timer);
   }, [loadData]);
 
-  const filteredRows = useMemo(() => {
-    const query = search.trim().toUpperCase();
-
-    return rows
-      .filter((row) => (query ? row.symbol.includes(query) || row.base.includes(query) : true))
-      .filter((row) => (exchange === "all" ? true : row.spotExchange === exchange || row.perpExchange === exchange))
-      .filter((row) => row.annualizedFundingRate >= minAnnualized)
-      .filter((row) => (row.volume24h ?? 0) >= minVolume)
-      .filter((row) => Math.abs(row.basisPercent) <= maxAbsBasis)
-      .filter((row) => (recommendedOnly ? isRecommended(row) : true))
-      .sort((a, b) => b.score - a.score || b.estimatedCarryAnnualized - a.estimatedCarryAnnualized);
-  }, [exchange, maxAbsBasis, minAnnualized, minVolume, recommendedOnly, rows, search]);
-
+  const filters: UnifiedOpportunityFilters = {
+    search,
+    opportunityType,
+    exchange,
+    minScore,
+    minAnnualized,
+    minVolume24h,
+    recommendedOnly,
+    hideHighRisk,
+    sortBy
+  };
+  const filteredRows = useMemo(() => filterUnifiedOpportunities(rows, filters), [
+    exchange,
+    hideHighRisk,
+    minAnnualized,
+    minScore,
+    minVolume24h,
+    opportunityType,
+    recommendedOnly,
+    rows,
+    search,
+    sortBy
+  ]);
   const stats = useMemo(() => buildStats(rows), [rows]);
 
   return (
@@ -66,30 +88,27 @@ export default function BasisPage() {
       <div className="mx-auto max-w-[1800px] space-y-5">
         <header className="flex flex-col gap-3 border-b border-slate-800 pb-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Basis / Short Spread Board</p>
-            <h1 className="mt-2 text-2xl font-semibold text-white">Basis</h1>
+            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Unified Opportunity Board</p>
+            <h1 className="mt-2 text-2xl font-semibold text-white">Opportunities</h1>
             <p className="mt-1 text-sm text-slate-400">
-              买现货 + 空永续的只读基差看板。只调用公开行情，不接 API Key，不下单。
+              Unified read-only view for cross-exchange funding spreads, spot-perp funding, and basis opportunities.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <Link className="text-cyan-300 hover:text-cyan-100" href="/dashboard">
               Dashboard
             </Link>
+            <Link className="text-cyan-300 hover:text-cyan-100" href="/basis">
+              Basis
+            </Link>
             <Link className="text-cyan-300 hover:text-cyan-100" href="/alpha">
               Alpha
-            </Link>
-            <Link className="text-cyan-300 hover:text-cyan-100" href="/adl-monitor">
-              ADL Monitor
-            </Link>
-            <Link className="text-cyan-300 hover:text-cyan-100" href="/opportunities">
-              Opportunities
             </Link>
             <button
               className="inline-flex h-10 items-center justify-center gap-2 border border-cyan-400/50 bg-cyan-400/10 px-4 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-wait disabled:opacity-60"
               disabled={loading}
               onClick={() => void loadData()}
-              title="刷新公开行情"
+              title="Refresh public market data"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
@@ -98,17 +117,17 @@ export default function BasisPage() {
         </header>
 
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <StatCard label="机会数量" value={stats.count.toLocaleString()} />
-          <StatCard label="最高年化资金费率" value={`${formatPercent(stats.maxAnnualized)}%`} tone="green" />
-          <StatCard label="最高 Estimated Carry" value={`${formatPercent(stats.maxCarry)}%`} tone="cyan" />
-          <StatCard label="价差超过 1%" value={stats.wideBasisCount.toLocaleString()} tone="orange" />
-          <StatCard label="推荐机会" value={stats.recommendedCount.toLocaleString()} tone="yellow" />
+          <StatCard label="Total" value={stats.total.toLocaleString()} />
+          <StatCard label="Recommended" value={stats.recommended.toLocaleString()} tone="cyan" />
+          <StatCard label="Highest Score" value={stats.highestScore.toLocaleString()} tone="green" />
+          <StatCard label="Highest Annualized" value={`${formatPercent(stats.highestAnnualized)}%`} tone="yellow" />
+          <StatCard label="High Risk" value={stats.highRisk.toLocaleString()} tone="orange" />
         </section>
 
         <section className="border border-slate-800 bg-slate-950/40 p-4">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_150px_170px_170px_150px_180px]">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_160px_150px_130px_160px_170px_160px_150px]">
             <label className="space-y-1 text-sm">
-              <span className="text-xs text-slate-400">搜索币种</span>
+              <span className="text-xs text-slate-400">Search Symbol</span>
               <span className="flex h-10 items-center gap-2 border border-slate-700 bg-slate-950 px-3">
                 <Search className="h-4 w-4 text-slate-500" />
                 <input
@@ -119,30 +138,45 @@ export default function BasisPage() {
                 />
               </span>
             </label>
-            <SelectFilter label="交易所" value={exchange} onChange={(value) => setExchange(value as "all" | ExchangeName)}>
+            <SelectFilter label="Type" value={opportunityType} onChange={(value) => setOpportunityType(value as "all" | UnifiedOpportunityType)}>
+              {TYPES.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </SelectFilter>
+            <SelectFilter label="Exchange" value={exchange} onChange={(value) => setExchange(value as "all" | ExchangeName)}>
               {EXCHANGES.map((item) => (
                 <option key={item} value={item}>
                   {item}
                 </option>
               ))}
             </SelectFilter>
-            <NumberFilter label="最低年化资金费率" step={1} value={minAnnualized} onChange={setMinAnnualized} />
-            <NumberFilter label="最低24h成交量" step={1000000} value={minVolume} onChange={setMinVolume} />
-            <NumberFilter label="最大绝对基差" step={0.1} value={maxAbsBasis} onChange={setMaxAbsBasis} />
-            <label className="flex h-full items-end gap-2 text-sm text-slate-200">
-              <input
-                checked={recommendedOnly}
-                className="mb-3 h-4 w-4 accent-cyan-400"
-                type="checkbox"
-                onChange={(event) => setRecommendedOnly(event.target.checked)}
-              />
-              <span className="pb-2">只看推荐机会</span>
-            </label>
+            <NumberFilter label="Min Score" step={5} value={minScore} onChange={setMinScore} />
+            <NumberFilter label="Min Annualized" step={5} value={minAnnualized} onChange={setMinAnnualized} />
+            <NumberFilter label="Min Volume 24h" step={1000000} value={minVolume24h} onChange={setMinVolume24h} />
+            <SelectFilter label="Sort" value={sortBy} onChange={(value) => setSortBy(value as UnifiedOpportunitySortBy)}>
+              {SORT_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </SelectFilter>
+            <div className="flex flex-col justify-end gap-2 text-sm text-slate-200">
+              <label className="flex items-center gap-2">
+                <input checked={recommendedOnly} className="h-4 w-4 accent-cyan-400" type="checkbox" onChange={(event) => setRecommendedOnly(event.target.checked)} />
+                <span>Only recommended</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input checked={hideHighRisk} className="h-4 w-4 accent-cyan-400" type="checkbox" onChange={(event) => setHideHighRisk(event.target.checked)} />
+                <span>Hide high risk</span>
+              </label>
+            </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
             <span>Rows: {filteredRows.length}</span>
             <span>Updated: {formatTime(updatedAt)}</span>
-            <span>Read Only / No Trading / No API Key</span>
+            <span>Read Only / No API Key / No Trading / No Simulation Execution</span>
           </div>
           {errors.length > 0 ? <p className="mt-3 text-xs text-amber-300">{errors.join(" | ")}</p> : null}
         </section>
@@ -152,14 +186,13 @@ export default function BasisPage() {
             <thead className="bg-slate-950 text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <Th align="right">Score</Th>
+                <Th>Type</Th>
                 <Th>Risk</Th>
-                <Th>币种</Th>
-                <Th>交易所</Th>
-                <Th align="right">Spot Price</Th>
-                <Th align="right">Perp Price</Th>
-                <Th align="right">Basis %</Th>
-                <Th align="right">Funding</Th>
+                <Th>Symbol</Th>
+                <Th>Direction</Th>
+                <Th>Exchanges</Th>
                 <Th align="right">Annualized</Th>
+                <Th align="right">Spread / Basis</Th>
                 <Th align="right">Estimated Carry</Th>
                 <Th align="right">Volume 24h</Th>
                 <Th align="right">Open Interest</Th>
@@ -169,36 +202,33 @@ export default function BasisPage() {
             </thead>
             <tbody className="divide-y divide-slate-800 bg-slate-950/30">
               {filteredRows.map((row) => (
-                <tr key={`${row.spotExchange}:${row.symbol}`} className="hover:bg-slate-900/70">
+                <tr key={row.id} className="hover:bg-slate-900/70">
                   <Td align="right">
                     <span className={`font-semibold ${scoreClass(row.score)}`}>{row.score}</span>
+                  </Td>
+                  <Td>
+                    <span className={`border px-2 py-0.5 text-xs ${typeClass(row.opportunityType)}`}>{row.opportunityType}</span>
                   </Td>
                   <Td>
                     <RiskTags tags={row.riskTags} />
                   </Td>
                   <Td>{row.symbol}</Td>
-                  <Td>{row.spotExchange}</Td>
-                  <Td align="right">{formatUsd(row.spotPrice)}</Td>
-                  <Td align="right">{formatUsd(row.perpPrice)}</Td>
-                  <Td align="right">
-                    <span className={Math.abs(row.basisPercent) >= 1 ? "text-orange-300" : "text-slate-200"}>
-                      {formatPercent(row.basisPercent)}%
-                    </span>
+                  <Td>
+                    <span className="line-clamp-2 max-w-[220px] text-slate-300">{row.direction}</span>
                   </Td>
-                  <Td align="right">{(row.fundingRate * 100).toFixed(4)}%</Td>
+                  <Td>{formatExchangePair(row)}</Td>
                   <Td align="right">
-                    <span className={row.annualizedFundingRate >= 90 ? "text-orange-300" : "text-emerald-300"}>
-                      {formatPercent(row.annualizedFundingRate)}%
-                    </span>
+                    <span className={row.annualizedRate >= 90 ? "text-orange-300" : "text-emerald-300"}>{formatPercent(row.annualizedRate)}%</span>
                   </Td>
                   <Td align="right">
-                    <span className={row.estimatedCarryAnnualized > 0 ? "text-cyan-300" : "text-red-300"}>
-                      {formatPercent(row.estimatedCarryAnnualized)}%
+                    <span className={Math.abs(row.basisPercent ?? row.spreadPercent ?? 0) >= 1 ? "text-orange-300" : "text-slate-200"}>
+                      {formatSpreadBasis(row)}
                     </span>
                   </Td>
+                  <Td align="right">{row.estimatedCarryAnnualized === undefined ? "-" : `${formatPercent(row.estimatedCarryAnnualized)}%`}</Td>
                   <Td align="right">{formatCompactUsd(row.volume24h)}</Td>
                   <Td align="right">{formatCompactUsd(row.openInterestUsd)}</Td>
-                  <Td>{formatTime(row.nextFundingTime)}</Td>
+                  <Td>{formatTime(row.nextFundingTime ?? null)}</Td>
                   <Td>
                     <span className="line-clamp-2 max-w-[360px] text-slate-400" title={row.opportunityReason}>
                       {row.opportunityReason}
@@ -208,8 +238,8 @@ export default function BasisPage() {
               ))}
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={14}>
-                    没有符合条件的同交易所正资金费率基差机会。
+                  <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={13}>
+                    No opportunities match the current filters.
                   </td>
                 </tr>
               ) : null}
@@ -221,29 +251,21 @@ export default function BasisPage() {
   );
 }
 
-function buildStats(rows: BasisOpportunity[]) {
+function buildStats(rows: UnifiedOpportunity[]) {
   return {
-    count: rows.length,
-    maxAnnualized: Math.max(0, ...rows.map((row) => row.annualizedFundingRate)),
-    maxCarry: Math.max(0, ...rows.map((row) => row.estimatedCarryAnnualized)),
-    wideBasisCount: rows.filter((row) => Math.abs(row.basisPercent) > 1).length,
-    recommendedCount: rows.filter(isRecommended).length
+    total: rows.length,
+    recommended: rows.filter(isRecommendedUnifiedOpportunity).length,
+    highestScore: Math.max(0, ...rows.map((row) => row.score)),
+    highestAnnualized: Math.max(0, ...rows.map((row) => row.annualizedRate)),
+    highRisk: rows.filter(isHighRiskUnifiedOpportunity).length
   };
-}
-
-function isRecommended(row: BasisOpportunity) {
-  return row.score >= 60 && (row.volume24h ?? 0) >= 1_000_000 && Math.abs(row.basisPercent) <= 1 && row.estimatedCarryAnnualized > 0;
 }
 
 function SelectFilter({ children, label, onChange, value }: { children: ReactNode; label: string; onChange: (value: string) => void; value: string }) {
   return (
     <label className="space-y-1 text-sm">
       <span className="text-xs text-slate-400">{label}</span>
-      <select
-        className="h-10 w-full border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      >
+      <select className="h-10 w-full border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100" value={value} onChange={(event) => onChange(event.target.value)}>
         {children}
       </select>
     </label>
@@ -284,9 +306,7 @@ function StatCard({ label, tone = "slate", value }: { label: string; tone?: "sla
 }
 
 function RiskTags({ tags }: { tags: string[] }) {
-  if (tags.length === 0) {
-    return <span className="text-slate-500">-</span>;
-  }
+  if (tags.length === 0) return <span className="text-slate-500">-</span>;
 
   return (
     <div className="flex max-w-[240px] flex-wrap gap-1">
@@ -307,6 +327,22 @@ function Td({ align = "left", children }: { align?: "left" | "right"; children: 
   return <td className={`whitespace-nowrap px-4 py-3 ${align === "right" ? "text-right tabular-nums" : "text-left"}`}>{children}</td>;
 }
 
+function formatExchangePair(row: UnifiedOpportunity) {
+  return row.secondaryExchange ? `${row.primaryExchange} / ${row.secondaryExchange}` : row.primaryExchange;
+}
+
+function formatSpreadBasis(row: UnifiedOpportunity) {
+  if (row.basisPercent !== undefined) return `Basis ${formatPercent(row.basisPercent)}%`;
+  if (row.spreadPercent !== undefined) return `Spread ${formatPercent(row.spreadPercent)}%`;
+  return "-";
+}
+
+function typeClass(type: UnifiedOpportunityType) {
+  if (type === "CrossExchange") return "border-purple-400/50 bg-purple-400/10 text-purple-200";
+  if (type === "SpotPerp") return "border-cyan-400/50 bg-cyan-400/10 text-cyan-200";
+  return "border-emerald-400/50 bg-emerald-400/10 text-emerald-200";
+}
+
 function scoreClass(score: number) {
   if (score >= 75) return "text-emerald-300";
   if (score >= 60) return "text-cyan-300";
@@ -316,10 +352,6 @@ function scoreClass(score: number) {
 
 function formatPercent(value: number) {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
-}
-
-function formatUsd(value: number) {
-  return `$${value.toLocaleString(undefined, { maximumFractionDigits: value >= 100 ? 2 : 6 })}`;
 }
 
 function formatCompactUsd(value: number | undefined) {
