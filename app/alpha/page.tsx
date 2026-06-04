@@ -153,7 +153,11 @@ function AlphaTable({ rows, title }: { rows: AlphaOpportunity[]; title: string }
           <tbody>
             {rows.map((row) => (
               <tr className="border-b border-slate-800/70 hover:bg-slate-800/40" key={`${title}:${row.id}`}>
-                <Cell strong>{row.symbol}</Cell>
+                <Cell strong>
+                  <Link className="text-cyan-300 hover:text-cyan-100" href={`/alpha/${encodeURIComponent(row.id)}`}>
+                    {row.symbol}
+                  </Link>
+                </Cell>
                 <Cell>{row.alphaType}</Cell>
                 <Cell>{row.exchangePair}</Cell>
                 <Cell className={getScoreClass(row.alphaScore)}>{row.alphaScore}</Cell>
