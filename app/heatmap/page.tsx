@@ -39,9 +39,14 @@ export default async function HeatmapPage({
             <h1 className="mt-2 text-2xl font-semibold text-white">Funding Heatmap</h1>
             <p className="mt-1 text-sm text-slate-400">Read-only historical funding aggregation by exchange and symbol.</p>
           </div>
-          <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/dashboard">
-            Back to dashboard
-          </Link>
+          <div className="flex gap-3 text-sm">
+            <Link className="text-cyan-300 hover:text-cyan-100" href="/notifications">
+              Notifications
+            </Link>
+            <Link className="text-cyan-300 hover:text-cyan-100" href="/dashboard">
+              Back to dashboard
+            </Link>
+          </div>
         </header>
 
         <section className="flex flex-col gap-3 border-y border-slate-800 bg-slate-950/40 py-4 lg:flex-row lg:items-center lg:justify-between">

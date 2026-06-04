@@ -60,6 +60,9 @@ export default async function AlphaPage({
             <Link className="text-cyan-300 hover:text-cyan-100" href="/factors">
               Factors
             </Link>
+            <Link className="text-cyan-300 hover:text-cyan-100" href="/notifications">
+              Notifications
+            </Link>
             <Link className="text-cyan-300 hover:text-cyan-100" href="/dashboard">
               Dashboard
             </Link>

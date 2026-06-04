@@ -111,6 +111,9 @@ export default function DashboardPage() {
             <h1 className="mt-2 text-2xl font-semibold tracking-normal text-white">资金费率套利看板</h1>
             <p className="mt-1 text-sm text-slate-400">只读公开行情数据，不接 API Key，不做交易执行。</p>
           </div>
+          <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/notifications">
+            Notifications
+          </Link>
           <button
             className="inline-flex h-10 items-center justify-center gap-2 rounded border border-cyan-400/50 bg-cyan-400/10 px-4 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-wait disabled:opacity-60"
             disabled={loading}
