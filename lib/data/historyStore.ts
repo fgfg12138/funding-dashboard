@@ -84,6 +84,13 @@ export async function queryFundingHistory(
   return filterAndLimitRows(rows, symbol, options).sort(sortByTimestampThenExchange);
 }
 
+export async function queryAllFundingHistory(
+  options: Pick<HistoryStoreOptions, "fundingHistoryPath" | "historyDir" | "limit" | "from" | "to"> = {}
+): Promise<FundingHistoryRecord[]> {
+  const rows = await readHistoryRecords<FundingHistoryRecord>("funding", options);
+  return filterAndLimitRows(rows, undefined, options).sort(sortByTimestampThenExchange);
+}
+
 export async function queryOpportunityHistory(
   symbol: string,
   options: Pick<HistoryStoreOptions, "opportunityHistoryPath" | "historyDir" | "limit" | "from" | "to"> = {}

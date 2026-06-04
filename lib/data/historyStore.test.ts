@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  queryAllFundingHistory,
   queryAllOpportunityHistory,
   queryFundingHistory,
   queryOpportunityHistory,
@@ -143,6 +144,26 @@ describe("historyStore", () => {
     expect(result).toHaveLength(5000);
     expect(result[0].timestamp).toBe(2);
     expect(result.at(-1)?.timestamp).toBe(5001);
+  });
+
+  it("queries all funding history across symbols for heatmap analysis", async () => {
+    await mkdir(historyDir, { recursive: true });
+    const rows = ["BTC/USDT", "ETH/USDT"].map((symbol, index) =>
+      JSON.stringify({
+        exchange: "Binance",
+        symbol,
+        fundingRate: 0.0001,
+        annualizedRate: 10 + index,
+        markPrice: 100_000,
+        nextFundingTime: 1_800_000_000_000,
+        timestamp: 1000 + index
+      })
+    );
+    await writeFile(join(historyDir, "funding-2026-06-04.jsonl"), `${rows.join("\n")}\n`, "utf8");
+
+    const result = await queryAllFundingHistory({ historyDir, limit: 10 });
+
+    expect(result.map((row) => row.symbol)).toEqual(["BTC/USDT", "ETH/USDT"]);
   });
 
   it("filters opportunity history by time range and explicit limit", async () => {
