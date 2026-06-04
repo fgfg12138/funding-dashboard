@@ -28,6 +28,9 @@ export default function AdlMonitorPage() {
             <Link className="text-cyan-300 hover:text-cyan-100" href="/notifications">
               Notifications
             </Link>
+            <Link className="text-cyan-300 hover:text-cyan-100" href="/basis">
+              Basis
+            </Link>
           </div>
         </header>
 
