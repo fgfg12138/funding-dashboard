@@ -1,12 +1,22 @@
 "use client";
 
 import { RefreshCw, Search } from "lucide-react";
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  AppShell,
+  DataTableShell,
+  ExchangeBadge,
+  FilterPanel,
+  ReadOnlyPill,
+  RiskBadge,
+  ScoreBadge,
+  StatCard,
+  TypeBadge
+} from "@/components/ui/dashboard";
+import type { ExchangeName } from "@/lib/exchanges/types";
 import type { UnifiedOpportunity, UnifiedOpportunityFilters, UnifiedOpportunitySortBy, UnifiedOpportunityType } from "@/lib/opportunities/types";
 import { filterUnifiedOpportunities, isHighRiskUnifiedOpportunity, isRecommendedUnifiedOpportunity } from "@/lib/opportunities/unifiedOpportunities";
-import type { ExchangeName } from "@/lib/exchanges/types";
 
 type SourceSnapshotMeta = {
   fundingMarketCount: number;
@@ -25,8 +35,18 @@ type OpportunitiesApiResponse = {
   meta?: SourceSnapshotMeta;
 };
 
+type QuickMode = "all" | UnifiedOpportunityType | "recommended" | "highRisk";
+
 const TYPES: Array<"all" | UnifiedOpportunityType> = ["all", "CrossExchange", "SpotPerp", "Basis"];
 const EXCHANGES: Array<"all" | ExchangeName> = ["all", "Binance", "OKX", "Bybit"];
+const QUICK_MODES: Array<{ label: string; value: QuickMode }> = [
+  { label: "All", value: "all" },
+  { label: "Cross Exchange", value: "CrossExchange" },
+  { label: "Spot/Perp", value: "SpotPerp" },
+  { label: "Basis", value: "Basis" },
+  { label: "Recommended", value: "recommended" },
+  { label: "High Risk", value: "highRisk" }
+];
 const SORT_OPTIONS: Array<{ label: string; value: UnifiedOpportunitySortBy }> = [
   { label: "Score", value: "score" },
   { label: "Annualized", value: "annualized" },
@@ -41,6 +61,7 @@ export default function OpportunitiesPage() {
   const [meta, setMeta] = useState<SourceSnapshotMeta | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [quickMode, setQuickMode] = useState<QuickMode>("all");
   const [search, setSearch] = useState("");
   const [opportunityType, setOpportunityType] = useState<"all" | UnifiedOpportunityType>("all");
   const [exchange, setExchange] = useState<"all" | ExchangeName>("all");
@@ -73,22 +94,27 @@ export default function OpportunitiesPage() {
 
   const filters: UnifiedOpportunityFilters = {
     search,
-    opportunityType,
+    opportunityType: quickMode === "CrossExchange" || quickMode === "SpotPerp" || quickMode === "Basis" ? quickMode : opportunityType,
     exchange,
     minScore,
     minAnnualized,
     minVolume24h,
-    recommendedOnly,
+    recommendedOnly: recommendedOnly || quickMode === "recommended",
     hideHighRisk,
     sortBy
   };
-  const filteredRows = useMemo(() => filterUnifiedOpportunities(rows, filters), [
+
+  const filteredRows = useMemo(() => {
+    const baseRows = filterUnifiedOpportunities(rows, filters);
+    return quickMode === "highRisk" ? baseRows.filter(isHighRiskUnifiedOpportunity) : baseRows;
+  }, [
     exchange,
     hideHighRisk,
     minAnnualized,
     minScore,
     minVolume24h,
     opportunityType,
+    quickMode,
     recommendedOnly,
     rows,
     search,
@@ -97,179 +123,189 @@ export default function OpportunitiesPage() {
   const stats = useMemo(() => buildStats(rows), [rows]);
 
   return (
-    <main className="min-h-screen bg-surface px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1800px] space-y-5">
-        <header className="flex flex-col gap-3 border-b border-slate-800 pb-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Unified Opportunity Board</p>
-            <h1 className="mt-2 text-2xl font-semibold text-white">Opportunities</h1>
-            <p className="mt-1 text-sm text-slate-400">
-              Unified read-only view for cross-exchange funding spreads, spot-perp funding, and basis opportunities.
-            </p>
+    <AppShell
+      activeHref="/opportunities"
+      actions={
+        <>
+          <div className="border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-slate-400">
+            Updated <span className="text-slate-100">{formatTime(updatedAt)}</span>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            <Link className="text-cyan-300 hover:text-cyan-100" href="/dashboard">
-              Dashboard
-            </Link>
-            <Link className="text-cyan-300 hover:text-cyan-100" href="/basis">
-              Basis
-            </Link>
-            <Link className="text-cyan-300 hover:text-cyan-100" href="/alpha">
-              Alpha
-            </Link>
-            <button
-              className="inline-flex h-10 items-center justify-center gap-2 border border-cyan-400/50 bg-cyan-400/10 px-4 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-wait disabled:opacity-60"
-              disabled={loading}
-              onClick={() => void loadData()}
-              title="Refresh public market data"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </button>
-          </div>
-        </header>
+          <button
+            className="inline-flex h-9 items-center justify-center gap-2 border border-cyan-400/50 bg-cyan-400/10 px-3 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-wait disabled:opacity-60"
+            disabled={loading}
+            onClick={() => void loadData()}
+            title="Refresh public market data"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+          <ReadOnlyPill />
+        </>
+      }
+      eyebrow="V1 Main Board"
+      subtitle="Read-only multi-exchange funding and basis opportunity board"
+      title="Funding Arbitrage OS"
+    >
+      <section className="grid gap-2 md:grid-cols-3 xl:grid-cols-7">
+        <StatCard label="Total Opportunities" value={stats.total.toLocaleString()} />
+        <StatCard label="Recommended" value={stats.recommended.toLocaleString()} tone="cyan" />
+        <StatCard label="Highest Score" value={stats.highestScore.toLocaleString()} tone="green" />
+        <StatCard label="Highest Annualized" value={`${formatPercent(stats.highestAnnualized)}%`} tone="yellow" />
+        <StatCard label="High Risk" value={stats.highRisk.toLocaleString()} tone="orange" />
+        <StatCard label="Funding Markets" value={(meta?.fundingMarketCount ?? 0).toLocaleString()} />
+        <StatCard label="Spot Markets" value={(meta?.spotMarketCount ?? 0).toLocaleString()} />
+      </section>
 
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <StatCard label="Total" value={stats.total.toLocaleString()} />
-          <StatCard label="Recommended" value={stats.recommended.toLocaleString()} tone="cyan" />
-          <StatCard label="Highest Score" value={stats.highestScore.toLocaleString()} tone="green" />
-          <StatCard label="Highest Annualized" value={`${formatPercent(stats.highestAnnualized)}%`} tone="yellow" />
-          <StatCard label="High Risk" value={stats.highRisk.toLocaleString()} tone="orange" />
-        </section>
+      <section className="flex gap-1 overflow-x-auto border-y border-slate-800 bg-slate-950/40 px-2 py-2">
+        {QUICK_MODES.map((mode) => (
+          <button
+            className={`whitespace-nowrap border px-3 py-1.5 text-xs ${
+              quickMode === mode.value
+                ? "border-cyan-400/60 bg-cyan-400/15 text-cyan-100"
+                : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700 hover:text-slate-100"
+            }`}
+            key={mode.value}
+            onClick={() => setQuickMode(mode.value)}
+            type="button"
+          >
+            {mode.label}
+          </button>
+        ))}
+      </section>
 
-        <section className="grid gap-2 border-y border-slate-800 bg-slate-950/30 py-3 text-xs text-slate-400 md:grid-cols-3 xl:grid-cols-6">
-          <MetaItem label="Funding Markets" value={meta?.fundingMarketCount} />
-          <MetaItem label="Spot Markets" value={meta?.spotMarketCount} />
-          <MetaItem label="Cross" value={meta?.crossCount} />
-          <MetaItem label="Spot/Perp" value={meta?.spotPerpCount} />
-          <MetaItem label="Basis" value={meta?.basisCount} />
-          <MetaItem label="Unified" value={meta?.unifiedCount} />
-        </section>
+      <FilterPanel
+        footer={
+          <>
+            <span>Rows: {filteredRows.length.toLocaleString()}</span>
+            <span>Cross: {meta?.crossCount?.toLocaleString() ?? "-"}</span>
+            <span>Spot/Perp: {meta?.spotPerpCount?.toLocaleString() ?? "-"}</span>
+            <span>Basis: {meta?.basisCount?.toLocaleString() ?? "-"}</span>
+            <span>Unified: {meta?.unifiedCount?.toLocaleString() ?? "-"}</span>
+            <span>Read Only / No API Key / No Trading / No Execution</span>
+          </>
+        }
+      >
+        <label className="space-y-1 text-sm">
+          <span className="text-xs text-slate-400">Symbol Search</span>
+          <span className="flex h-9 items-center gap-2 border border-slate-700 bg-slate-950 px-3">
+            <Search className="h-4 w-4 text-slate-500" />
+            <input
+              className="min-w-0 flex-1 bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-600"
+              placeholder="BTC/USDT"
+              value={search}
+              onChange={(event) => setSearch(event.target.value.toUpperCase())}
+            />
+          </span>
+        </label>
+        <SelectFilter label="Type" value={opportunityType} onChange={(value) => setOpportunityType(value as "all" | UnifiedOpportunityType)}>
+          {TYPES.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </SelectFilter>
+        <SelectFilter label="Exchange" value={exchange} onChange={(value) => setExchange(value as "all" | ExchangeName)}>
+          {EXCHANGES.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </SelectFilter>
+        <NumberFilter label="Min Score" step={5} value={minScore} onChange={setMinScore} />
+        <NumberFilter label="Min Annualized" step={5} value={minAnnualized} onChange={setMinAnnualized} />
+        <NumberFilter label="Min Volume" step={1000000} value={minVolume24h} onChange={setMinVolume24h} />
+        <SelectFilter label="Sort" value={sortBy} onChange={(value) => setSortBy(value as UnifiedOpportunitySortBy)}>
+          {SORT_OPTIONS.map((item) => (
+            <option key={item.value} value={item.value}>
+              {item.label}
+            </option>
+          ))}
+        </SelectFilter>
+        <div className="flex flex-col justify-end gap-2 text-sm text-slate-200">
+          <label className="flex items-center gap-2">
+            <input checked={recommendedOnly} className="h-4 w-4 accent-cyan-400" type="checkbox" onChange={(event) => setRecommendedOnly(event.target.checked)} />
+            <span>Recommended Only</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input checked={hideHighRisk} className="h-4 w-4 accent-cyan-400" type="checkbox" onChange={(event) => setHideHighRisk(event.target.checked)} />
+            <span>Hide High Risk</span>
+          </label>
+        </div>
+      </FilterPanel>
 
-        <section className="border border-slate-800 bg-slate-950/40 p-4">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_160px_150px_130px_160px_170px_160px_150px]">
-            <label className="space-y-1 text-sm">
-              <span className="text-xs text-slate-400">Search Symbol</span>
-              <span className="flex h-10 items-center gap-2 border border-slate-700 bg-slate-950 px-3">
-                <Search className="h-4 w-4 text-slate-500" />
-                <input
-                  className="min-w-0 flex-1 bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-600"
-                  placeholder="BTC/USDT"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value.toUpperCase())}
-                />
-              </span>
-            </label>
-            <SelectFilter label="Type" value={opportunityType} onChange={(value) => setOpportunityType(value as "all" | UnifiedOpportunityType)}>
-              {TYPES.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </SelectFilter>
-            <SelectFilter label="Exchange" value={exchange} onChange={(value) => setExchange(value as "all" | ExchangeName)}>
-              {EXCHANGES.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </SelectFilter>
-            <NumberFilter label="Min Score" step={5} value={minScore} onChange={setMinScore} />
-            <NumberFilter label="Min Annualized" step={5} value={minAnnualized} onChange={setMinAnnualized} />
-            <NumberFilter label="Min Volume 24h" step={1000000} value={minVolume24h} onChange={setMinVolume24h} />
-            <SelectFilter label="Sort" value={sortBy} onChange={(value) => setSortBy(value as UnifiedOpportunitySortBy)}>
-              {SORT_OPTIONS.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </SelectFilter>
-            <div className="flex flex-col justify-end gap-2 text-sm text-slate-200">
-              <label className="flex items-center gap-2">
-                <input checked={recommendedOnly} className="h-4 w-4 accent-cyan-400" type="checkbox" onChange={(event) => setRecommendedOnly(event.target.checked)} />
-                <span>Only recommended</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input checked={hideHighRisk} className="h-4 w-4 accent-cyan-400" type="checkbox" onChange={(event) => setHideHighRisk(event.target.checked)} />
-                <span>Hide high risk</span>
-              </label>
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
-            <span>Rows: {filteredRows.length}</span>
-            <span>Updated: {formatTime(updatedAt)}</span>
-            <span>Read Only / No API Key / No Trading / No Simulation Execution</span>
-          </div>
-          {errors.length > 0 ? <p className="mt-3 text-xs text-amber-300">{errors.join(" | ")}</p> : null}
-        </section>
+      {errors.length > 0 ? <p className="border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">{errors.join(" | ")}</p> : null}
 
-        <section className="overflow-x-auto border border-slate-800">
-          <table className="min-w-full divide-y divide-slate-800 text-sm">
-            <thead className="bg-slate-950 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <Th align="right">Score</Th>
-                <Th>Type</Th>
-                <Th>Risk</Th>
-                <Th>Symbol</Th>
-                <Th>Direction</Th>
-                <Th>Exchanges</Th>
-                <Th align="right">Annualized</Th>
-                <Th align="right">Spread / Basis</Th>
-                <Th align="right">Estimated Carry</Th>
-                <Th align="right">Volume 24h</Th>
-                <Th align="right">Open Interest</Th>
-                <Th>Next Funding</Th>
-                <Th>Reason</Th>
+      <DataTableShell>
+        <table className="min-w-[1680px] border-collapse text-sm">
+          <thead className="sticky top-0 z-10 bg-slate-950 text-xs uppercase tracking-wide text-slate-500">
+            <tr className="border-b border-slate-800">
+              <Th align="right">Score</Th>
+              <Th>Type</Th>
+              <Th>Risk</Th>
+              <Th>Symbol</Th>
+              <Th>Direction</Th>
+              <Th>Exchanges</Th>
+              <Th align="right">Annualized</Th>
+              <Th align="right">Spread / Basis</Th>
+              <Th align="right">Estimated Carry</Th>
+              <Th align="right">Volume 24h</Th>
+              <Th align="right">Open Interest</Th>
+              <Th>Next Funding</Th>
+              <Th>Reason</Th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {filteredRows.map((row) => (
+              <tr className="bg-slate-950/20 hover:bg-slate-900/70" key={row.id}>
+                <Td align="right">
+                  <ScoreBadge score={row.score} />
+                </Td>
+                <Td>
+                  <TypeBadge label={row.opportunityType} />
+                </Td>
+                <Td>
+                  <RiskTags tags={row.riskTags} />
+                </Td>
+                <Td>
+                  <div className="font-semibold text-slate-100">{row.symbol}</div>
+                  <div className="text-xs text-slate-500">
+                    {row.base}/{row.quote}
+                  </div>
+                </Td>
+                <Td>
+                  <span className="line-clamp-2 max-w-[240px] text-slate-300">{row.direction}</span>
+                </Td>
+                <Td>
+                  <ExchangePair row={row} />
+                </Td>
+                <Td align="right">
+                  <span className={row.annualizedRate >= 90 ? "text-orange-300" : "text-emerald-300"}>{formatPercent(row.annualizedRate)}%</span>
+                </Td>
+                <Td align="right">
+                  <span className={Math.abs(row.basisPercent ?? row.spreadPercent ?? 0) >= 1 ? "text-orange-300" : "text-slate-200"}>{formatSpreadBasis(row)}</span>
+                </Td>
+                <Td align="right">{row.estimatedCarryAnnualized === undefined ? "-" : `${formatPercent(row.estimatedCarryAnnualized)}%`}</Td>
+                <Td align="right">{formatCompactUsd(row.volume24h)}</Td>
+                <Td align="right">{formatCompactUsd(row.openInterestUsd)}</Td>
+                <Td>{formatTime(row.nextFundingTime ?? null)}</Td>
+                <Td>
+                  <span className="line-clamp-2 max-w-[420px] text-slate-400" title={row.opportunityReason}>
+                    {row.opportunityReason}
+                  </span>
+                </Td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800 bg-slate-950/30">
-              {filteredRows.map((row) => (
-                <tr key={row.id} className="hover:bg-slate-900/70">
-                  <Td align="right">
-                    <span className={`font-semibold ${scoreClass(row.score)}`}>{row.score}</span>
-                  </Td>
-                  <Td>
-                    <span className={`border px-2 py-0.5 text-xs ${typeClass(row.opportunityType)}`}>{row.opportunityType}</span>
-                  </Td>
-                  <Td>
-                    <RiskTags tags={row.riskTags} />
-                  </Td>
-                  <Td>{row.symbol}</Td>
-                  <Td>
-                    <span className="line-clamp-2 max-w-[220px] text-slate-300">{row.direction}</span>
-                  </Td>
-                  <Td>{formatExchangePair(row)}</Td>
-                  <Td align="right">
-                    <span className={row.annualizedRate >= 90 ? "text-orange-300" : "text-emerald-300"}>{formatPercent(row.annualizedRate)}%</span>
-                  </Td>
-                  <Td align="right">
-                    <span className={Math.abs(row.basisPercent ?? row.spreadPercent ?? 0) >= 1 ? "text-orange-300" : "text-slate-200"}>
-                      {formatSpreadBasis(row)}
-                    </span>
-                  </Td>
-                  <Td align="right">{row.estimatedCarryAnnualized === undefined ? "-" : `${formatPercent(row.estimatedCarryAnnualized)}%`}</Td>
-                  <Td align="right">{formatCompactUsd(row.volume24h)}</Td>
-                  <Td align="right">{formatCompactUsd(row.openInterestUsd)}</Td>
-                  <Td>{formatTime(row.nextFundingTime ?? null)}</Td>
-                  <Td>
-                    <span className="line-clamp-2 max-w-[360px] text-slate-400" title={row.opportunityReason}>
-                      {row.opportunityReason}
-                    </span>
-                  </Td>
-                </tr>
-              ))}
-              {filteredRows.length === 0 ? (
-                <tr>
-                  <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={13}>
-                    No opportunities match the current filters.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </section>
-      </div>
-    </main>
+            ))}
+            {filteredRows.length === 0 ? (
+              <tr>
+                <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={13}>
+                  No opportunities match the current filters.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </DataTableShell>
+    </AppShell>
   );
 }
 
@@ -287,7 +323,7 @@ function SelectFilter({ children, label, onChange, value }: { children: ReactNod
   return (
     <label className="space-y-1 text-sm">
       <span className="text-xs text-slate-400">{label}</span>
-      <select className="h-10 w-full border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100" value={value} onChange={(event) => onChange(event.target.value)}>
+      <select className="h-9 w-full border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100" value={value} onChange={(event) => onChange(event.target.value)}>
         {children}
       </select>
     </label>
@@ -299,7 +335,7 @@ function NumberFilter({ label, onChange, step, value }: { label: string; onChang
     <label className="space-y-1 text-sm">
       <span className="text-xs text-slate-400">{label}</span>
       <input
-        className="h-10 w-full border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100"
+        className="h-9 w-full border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100"
         min={0}
         step={step}
         type="number"
@@ -310,75 +346,39 @@ function NumberFilter({ label, onChange, step, value }: { label: string; onChang
   );
 }
 
-function StatCard({ label, tone = "slate", value }: { label: string; tone?: "slate" | "green" | "cyan" | "orange" | "yellow"; value: string }) {
-  const toneClass = {
-    slate: "text-slate-100",
-    green: "text-emerald-300",
-    cyan: "text-cyan-300",
-    orange: "text-orange-300",
-    yellow: "text-yellow-200"
-  }[tone];
-
-  return (
-    <div className="border border-slate-800 bg-slate-950/50 p-4">
-      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold ${toneClass}`}>{value}</p>
-    </div>
-  );
-}
-
-function MetaItem({ label, value }: { label: string; value: number | undefined }) {
-  return (
-    <div className="flex items-center justify-between gap-3 border border-slate-800 bg-slate-950/50 px-3 py-2">
-      <span>{label}</span>
-      <span className="font-semibold text-slate-100 tabular-nums">{value?.toLocaleString() ?? "-"}</span>
-    </div>
-  );
-}
-
 function RiskTags({ tags }: { tags: string[] }) {
   if (tags.length === 0) return <span className="text-slate-500">-</span>;
 
   return (
-    <div className="flex max-w-[240px] flex-wrap gap-1">
+    <div className="flex max-w-[260px] flex-wrap gap-1">
       {tags.map((tag) => (
-        <span className="border border-slate-700 bg-slate-900 px-2 py-0.5 text-xs text-amber-200" key={tag}>
-          {tag}
-        </span>
+        <RiskBadge key={tag} label={tag} />
       ))}
     </div>
   );
 }
 
+function ExchangePair({ row }: { row: UnifiedOpportunity }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      <ExchangeBadge label={row.primaryExchange} />
+      {row.secondaryExchange ? <ExchangeBadge label={row.secondaryExchange} /> : null}
+    </div>
+  );
+}
+
 function Th({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {
-  return <th className={`whitespace-nowrap px-4 py-3 ${align === "right" ? "text-right" : "text-left"}`}>{children}</th>;
+  return <th className={`whitespace-nowrap px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`}>{children}</th>;
 }
 
 function Td({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {
-  return <td className={`whitespace-nowrap px-4 py-3 ${align === "right" ? "text-right tabular-nums" : "text-left"}`}>{children}</td>;
-}
-
-function formatExchangePair(row: UnifiedOpportunity) {
-  return row.secondaryExchange ? `${row.primaryExchange} / ${row.secondaryExchange}` : row.primaryExchange;
+  return <td className={`whitespace-nowrap px-3 py-2 align-top ${align === "right" ? "text-right tabular-nums" : "text-left"}`}>{children}</td>;
 }
 
 function formatSpreadBasis(row: UnifiedOpportunity) {
   if (row.basisPercent !== undefined) return `Basis ${formatPercent(row.basisPercent)}%`;
   if (row.spreadPercent !== undefined) return `Spread ${formatPercent(row.spreadPercent)}%`;
   return "-";
-}
-
-function typeClass(type: UnifiedOpportunityType) {
-  if (type === "CrossExchange") return "border-purple-400/50 bg-purple-400/10 text-purple-200";
-  if (type === "SpotPerp") return "border-cyan-400/50 bg-cyan-400/10 text-cyan-200";
-  return "border-emerald-400/50 bg-emerald-400/10 text-emerald-200";
-}
-
-function scoreClass(score: number) {
-  if (score >= 75) return "text-emerald-300";
-  if (score >= 60) return "text-cyan-300";
-  if (score >= 40) return "text-yellow-200";
-  return "text-slate-400";
 }
 
 function formatPercent(value: number) {
