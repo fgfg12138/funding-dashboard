@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, readdir, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
   calculateAnnualizedRate,
@@ -7,9 +7,10 @@ import {
 } from "../arbitrage/calculations";
 import type { ExchangeName, FundingMarket, SpotMarket } from "../exchanges/types";
 
-const DEFAULT_DATA_DIR = join(process.cwd(), ".data");
-const DEFAULT_FUNDING_HISTORY_PATH = join(DEFAULT_DATA_DIR, "funding-history.jsonl");
-const DEFAULT_OPPORTUNITY_HISTORY_PATH = join(DEFAULT_DATA_DIR, "opportunity-history.jsonl");
+const DEFAULT_HISTORY_DIR = join(process.cwd(), ".data", "history");
+const DEFAULT_LIMIT = 5000;
+const DEFAULT_RETENTION_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type FundingHistoryRecord = {
   exchange: ExchangeName;
@@ -42,8 +43,14 @@ export type OpportunityHistoryRecord = {
 };
 
 export type HistoryStoreOptions = {
+  historyDir?: string;
   fundingHistoryPath?: string;
   opportunityHistoryPath?: string;
+  limit?: number;
+  from?: number;
+  to?: number;
+  now?: number;
+  retentionDays?: number;
 };
 
 export type SaveHistorySnapshotInput = HistoryStoreOptions & {
@@ -54,31 +61,34 @@ export type SaveHistorySnapshotInput = HistoryStoreOptions & {
 
 export async function saveHistorySnapshot(input: SaveHistorySnapshotInput): Promise<void> {
   const timestamp = input.timestamp ?? Date.now();
+  const historyDir = input.historyDir ?? DEFAULT_HISTORY_DIR;
   const fundingRows = input.fundingMarkets.map((market) => toFundingHistoryRecord(market, timestamp));
   const opportunityRows = buildOpportunityHistoryRecords(input.spotMarkets, input.fundingMarkets, timestamp);
 
   await Promise.all([
-    appendJsonLines(input.fundingHistoryPath ?? DEFAULT_FUNDING_HISTORY_PATH, fundingRows),
-    appendJsonLines(input.opportunityHistoryPath ?? DEFAULT_OPPORTUNITY_HISTORY_PATH, opportunityRows)
+    appendJsonLines(input.fundingHistoryPath ?? getShardPath(historyDir, "funding", timestamp), fundingRows),
+    appendJsonLines(input.opportunityHistoryPath ?? getShardPath(historyDir, "opportunities", timestamp), opportunityRows)
   ]);
+
+  if (!input.fundingHistoryPath && !input.opportunityHistoryPath) {
+    await cleanupHistoryShards(historyDir, input.now ?? timestamp, input.retentionDays ?? DEFAULT_RETENTION_DAYS);
+  }
 }
 
 export async function queryFundingHistory(
   symbol: string,
-  options: Pick<HistoryStoreOptions, "fundingHistoryPath"> = {}
+  options: Pick<HistoryStoreOptions, "fundingHistoryPath" | "historyDir" | "limit" | "from" | "to"> = {}
 ): Promise<FundingHistoryRecord[]> {
-  const rows = await readJsonLines<FundingHistoryRecord>(options.fundingHistoryPath ?? DEFAULT_FUNDING_HISTORY_PATH);
-  return rows.filter((row) => row.symbol === symbol).sort(sortByTimestampThenExchange);
+  const rows = await readHistoryRecords<FundingHistoryRecord>("funding", options);
+  return filterAndLimitRows(rows, symbol, options).sort(sortByTimestampThenExchange);
 }
 
 export async function queryOpportunityHistory(
   symbol: string,
-  options: Pick<HistoryStoreOptions, "opportunityHistoryPath"> = {}
+  options: Pick<HistoryStoreOptions, "opportunityHistoryPath" | "historyDir" | "limit" | "from" | "to"> = {}
 ): Promise<OpportunityHistoryRecord[]> {
-  const rows = await readJsonLines<OpportunityHistoryRecord>(
-    options.opportunityHistoryPath ?? DEFAULT_OPPORTUNITY_HISTORY_PATH
-  );
-  return rows.filter((row) => row.symbol === symbol).sort(sortByTimestampThenType);
+  const rows = await readHistoryRecords<OpportunityHistoryRecord>("opportunities", options);
+  return filterAndLimitRows(rows, symbol, options).sort(sortByTimestampThenType);
 }
 
 function toFundingHistoryRecord(market: FundingMarket, timestamp: number): FundingHistoryRecord {
@@ -171,6 +181,21 @@ async function appendJsonLines<T>(path: string, rows: T[]): Promise<void> {
   await appendFile(path, `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`, "utf8");
 }
 
+async function readHistoryRecords<T extends { timestamp: number }>(
+  kind: "funding" | "opportunities",
+  options: Pick<HistoryStoreOptions, "fundingHistoryPath" | "opportunityHistoryPath" | "historyDir">
+): Promise<T[]> {
+  const explicitPath = kind === "funding" ? options.fundingHistoryPath : options.opportunityHistoryPath;
+  if (explicitPath) {
+    return readJsonLines<T>(explicitPath);
+  }
+
+  const historyDir = options.historyDir ?? DEFAULT_HISTORY_DIR;
+  const files = await listShardFiles(historyDir, kind);
+  const rows = await Promise.all(files.map((file) => readJsonLines<T>(join(historyDir, file))));
+  return rows.flat();
+}
+
 async function readJsonLines<T>(path: string): Promise<T[]> {
   let content = "";
   try {
@@ -190,12 +215,101 @@ async function readJsonLines<T>(path: string): Promise<T[]> {
     .filter((row): row is T => Boolean(row));
 }
 
+async function listShardFiles(historyDir: string, kind: "funding" | "opportunities"): Promise<string[]> {
+  let files: string[] = [];
+  try {
+    files = await readdir(historyDir);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+
+  return files
+    .filter((file) => getShardInfo(file)?.kind === kind)
+    .sort((a, b) => b.localeCompare(a));
+}
+
+async function cleanupHistoryShards(historyDir: string, now: number, retentionDays: number): Promise<void> {
+  const cutoff = startOfUtcDay(now) - retentionDays * DAY_MS;
+  const files = await listAllShardFiles(historyDir);
+
+  await Promise.all(
+    files.map(async (file) => {
+      const shard = getShardInfo(file);
+      if (shard && shard.timestamp < cutoff) {
+        await unlink(join(historyDir, file));
+      }
+    })
+  );
+}
+
+async function listAllShardFiles(historyDir: string): Promise<string[]> {
+  try {
+    const files = await readdir(historyDir);
+    return files.filter((file) => Boolean(getShardInfo(file)));
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+}
+
 function parseJsonLine<T>(line: string): T | null {
   try {
     return JSON.parse(line) as T;
   } catch {
     return null;
   }
+}
+
+function filterAndLimitRows<T extends { symbol: string; timestamp: number }>(
+  rows: T[],
+  symbol: string,
+  options: Pick<HistoryStoreOptions, "limit" | "from" | "to">
+): T[] {
+  const limit = normalizeLimit(options.limit);
+  return rows
+    .filter((row) => row.symbol === symbol)
+    .filter((row) => options.from === undefined || row.timestamp >= options.from)
+    .filter((row) => options.to === undefined || row.timestamp <= options.to)
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, limit);
+}
+
+function normalizeLimit(limit: number | undefined): number {
+  if (!Number.isFinite(limit) || limit === undefined || limit <= 0) {
+    return DEFAULT_LIMIT;
+  }
+
+  return Math.floor(limit);
+}
+
+function getShardPath(historyDir: string, kind: "funding" | "opportunities", timestamp: number): string {
+  return join(historyDir, `${kind}-${formatShardDate(timestamp)}.jsonl`);
+}
+
+function formatShardDate(timestamp: number): string {
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function getShardInfo(file: string): { kind: "funding" | "opportunities"; timestamp: number } | null {
+  const match = /^(funding|opportunities)-(\d{4}-\d{2}-\d{2})\.jsonl$/.exec(file);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    kind: match[1] as "funding" | "opportunities",
+    timestamp: Date.parse(`${match[2]}T00:00:00.000Z`)
+  };
+}
+
+function startOfUtcDay(timestamp: number): number {
+  const date = new Date(timestamp);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 }
 
 function groupBy<T>(items: T[], keyFn: (item: T) => string): Map<string, T[]> {

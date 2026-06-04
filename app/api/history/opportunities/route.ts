@@ -16,9 +16,22 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const data = await queryOpportunityHistory(symbol);
+  const data = await queryOpportunityHistory(symbol, {
+    limit: parseNumberParam(request.nextUrl.searchParams.get("limit")),
+    from: parseNumberParam(request.nextUrl.searchParams.get("from")),
+    to: parseNumberParam(request.nextUrl.searchParams.get("to"))
+  });
   return NextResponse.json({
     data,
     updatedAt: Date.now()
   });
+}
+
+function parseNumberParam(value: string | null): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }

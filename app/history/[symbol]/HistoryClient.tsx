@@ -1,5 +1,6 @@
 "use client";
 
+import { Download } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { FundingHistoryRecord, OpportunityHistoryRecord } from "@/lib/data/historyStore";
@@ -21,11 +22,21 @@ type ChartSeries = {
   points: ChartPoint[];
 };
 
+type HistoryRange = "1h" | "24h" | "7d" | "30d";
+
 const SERIES_COLORS = ["#22d3ee", "#34d399", "#fb923c", "#f472b6", "#a78bfa", "#facc15"];
+const HISTORY_RANGES: Array<{ label: HistoryRange; ms: number }> = [
+  { label: "1h", ms: 60 * 60_000 },
+  { label: "24h", ms: 24 * 60 * 60_000 },
+  { label: "7d", ms: 7 * 24 * 60 * 60_000 },
+  { label: "30d", ms: 30 * 24 * 60 * 60_000 }
+];
+const HISTORY_LIMIT = 5000;
 
 export default function HistoryClient({ symbol }: { symbol: string }) {
   const [fundingRows, setFundingRows] = useState<FundingHistoryRecord[]>([]);
   const [opportunityRows, setOpportunityRows] = useState<OpportunityHistoryRecord[]>([]);
+  const [range, setRange] = useState<HistoryRange>("24h");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,9 +48,12 @@ export default function HistoryClient({ symbol }: { symbol: string }) {
       setError(null);
       try {
         const encoded = encodeURIComponent(symbol);
+        const to = Date.now();
+        const from = to - (HISTORY_RANGES.find((item) => item.label === range)?.ms ?? HISTORY_RANGES[1].ms);
+        const params = `symbol=${encoded}&from=${from}&to=${to}&limit=${HISTORY_LIMIT}`;
         const [fundingRes, opportunityRes] = await Promise.all([
-          fetch(`/api/history/funding?symbol=${encoded}`).then((res) => res.json() as Promise<ApiResponse<FundingHistoryRecord[]>>),
-          fetch(`/api/history/opportunities?symbol=${encoded}`).then((res) => res.json() as Promise<ApiResponse<OpportunityHistoryRecord[]>>)
+          fetch(`/api/history/funding?${params}`).then((res) => res.json() as Promise<ApiResponse<FundingHistoryRecord[]>>),
+          fetch(`/api/history/opportunities?${params}`).then((res) => res.json() as Promise<ApiResponse<OpportunityHistoryRecord[]>>)
         ]);
 
         if (!cancelled) {
@@ -65,7 +79,7 @@ export default function HistoryClient({ symbol }: { symbol: string }) {
     return () => {
       cancelled = true;
     };
-  }, [symbol]);
+  }, [range, symbol]);
 
   const fundingRateSeries = useMemo(
     () => buildFundingSeries(fundingRows, "fundingRate", 100),
@@ -94,6 +108,30 @@ export default function HistoryClient({ symbol }: { symbol: string }) {
           </div>
         </header>
 
+        <section className="flex flex-col gap-3 border-b border-slate-800 pb-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="inline-flex w-fit rounded border border-slate-700 bg-slate-950 p-1">
+            {HISTORY_RANGES.map((item) => (
+              <button
+                className={`h-8 px-3 text-sm ${range === item.label ? "bg-cyan-400/20 text-cyan-100" : "text-slate-400 hover:text-slate-100"}`}
+                key={item.label}
+                onClick={() => setRange(item.label)}
+                type="button"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <button
+            className="inline-flex h-9 w-fit items-center justify-center gap-2 rounded border border-cyan-400/50 bg-cyan-400/10 px-3 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={fundingRows.length === 0 && opportunityRows.length === 0}
+            onClick={() => exportHistoryCsv(symbol, range, fundingRows, opportunityRows)}
+            type="button"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
+        </section>
+
         {error && (
           <div className="rounded border border-amber-300/40 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
             {error}
@@ -109,6 +147,108 @@ export default function HistoryClient({ symbol }: { symbol: string }) {
       </div>
     </main>
   );
+}
+
+function exportHistoryCsv(
+  symbol: string,
+  range: HistoryRange,
+  fundingRows: FundingHistoryRecord[],
+  opportunityRows: OpportunityHistoryRecord[]
+) {
+  const csv = buildHistoryCsv(fundingRows, opportunityRows);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${symbol.replace(/[^a-z0-9]+/gi, "_")}-${range}-history.csv`;
+  link.click();
+  window.URL.revokeObjectURL(url);
+}
+
+function buildHistoryCsv(fundingRows: FundingHistoryRecord[], opportunityRows: OpportunityHistoryRecord[]) {
+  const headers = [
+    "recordType",
+    "symbol",
+    "timestamp",
+    "exchange",
+    "fundingRate",
+    "annualizedRate",
+    "markPrice",
+    "volume24h",
+    "openInterestUsd",
+    "nextFundingTime",
+    "opportunityType",
+    "annualizedSpread",
+    "priceSpread",
+    "score",
+    "direction",
+    "shortExchange",
+    "longExchange",
+    "spotExchange",
+    "perpExchange",
+    "exchangeCount"
+  ];
+  const fundingCsvRows = fundingRows.map((row) => [
+    "funding",
+    row.symbol,
+    row.timestamp,
+    row.exchange,
+    row.fundingRate,
+    row.annualizedRate,
+    row.markPrice,
+    row.volume24h,
+    row.openInterestUsd,
+    row.nextFundingTime,
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    ""
+  ]);
+  const opportunityCsvRows = opportunityRows.map((row) => [
+    "opportunity",
+    row.symbol,
+    row.timestamp,
+    "",
+    "",
+    row.annualizedRate,
+    "",
+    row.volume24h,
+    row.openInterestUsd,
+    "",
+    row.type,
+    row.annualizedSpread,
+    row.priceSpread,
+    row.score,
+    row.direction,
+    row.shortExchange,
+    row.longExchange,
+    row.spotExchange,
+    row.perpExchange,
+    row.exchangeCount
+  ]);
+
+  return [headers, ...fundingCsvRows, ...opportunityCsvRows]
+    .map((row) => row.map((value) => escapeCsvValue(value)).join(","))
+    .join("\n");
+}
+
+function escapeCsvValue(value: string | number | undefined) {
+  if (value === undefined) {
+    return "";
+  }
+
+  const text = String(value);
+  if (!/[",\n]/.test(text)) {
+    return text;
+  }
+
+  return `"${text.replace(/"/g, '""')}"`;
 }
 
 function buildFundingSeries(
