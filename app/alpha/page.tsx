@@ -69,6 +69,9 @@ export default async function AlphaPage({
             <Link className="text-cyan-300 hover:text-cyan-100" href="/strategies">
               Strategies
             </Link>
+            <Link className="text-cyan-300 hover:text-cyan-100" href="/risk-rules">
+              Risk Rules
+            </Link>
             <Link className="text-cyan-300 hover:text-cyan-100" href="/dashboard">
               Dashboard
             </Link>

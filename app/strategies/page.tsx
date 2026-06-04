@@ -23,6 +23,9 @@ export default function StrategiesPage() {
             <Link className="text-cyan-300 hover:text-cyan-100" href="/simulation">
               Simulation
             </Link>
+            <Link className="text-cyan-300 hover:text-cyan-100" href="/risk-rules">
+              Risk Rules
+            </Link>
           </div>
         </header>
 
