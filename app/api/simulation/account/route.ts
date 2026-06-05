@@ -6,6 +6,9 @@ export const runtime = "nodejs";
 export async function GET() {
   return NextResponse.json({
     data: await getSimulationAccount(),
-    updatedAt: Date.now()
+    errors: [],
+    updatedAt: Date.now(),
+    stale: false,
+    sourceStatus: {}
   });
 }

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
-import { getCrossExchangeOpportunities, getFundingSnapshot } from "@/lib/data/fundingService";
+import { buildCrossExchangeOpportunities, getFundingSnapshot } from "@/lib/data/fundingService";
 
 export async function GET() {
-  const [data, snapshot] = await Promise.all([getCrossExchangeOpportunities(), getFundingSnapshot()]);
+  const snapshot = await getFundingSnapshot();
 
   return NextResponse.json({
-    data,
+    data: buildCrossExchangeOpportunities(snapshot.fundingMarkets),
     errors: snapshot.errors,
-    updatedAt: Date.now(),
-    stale: false
+    updatedAt: snapshot.updatedAt,
+    stale: snapshot.stale,
+    sourceStatus: snapshot.sourceStatus
   });
 }

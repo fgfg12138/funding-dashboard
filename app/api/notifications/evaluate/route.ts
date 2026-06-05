@@ -10,6 +10,10 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     data: result.events,
-    evaluatedAt: result.evaluatedAt
+    errors: [],
+    evaluatedAt: result.evaluatedAt,
+    updatedAt: result.evaluatedAt,
+    stale: false,
+    sourceStatus: {}
   });
 }

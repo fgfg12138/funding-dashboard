@@ -2,7 +2,7 @@
 
 import { Search } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import {
   DataTableShell,
@@ -29,6 +29,7 @@ type SourceSnapshotMeta = {
 type OpportunitiesApiResponse = {
   data: UnifiedOpportunity[];
   errors?: string[];
+  stale?: boolean;
   updatedAt: number;
   meta?: SourceSnapshotMeta;
 };
@@ -57,8 +58,10 @@ export default function OpportunitiesPage() {
   const [rows, setRows] = useState<UnifiedOpportunity[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [meta, setMeta] = useState<SourceSnapshotMeta | null>(null);
+  const [stale, setStale] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const requestInFlight = useRef(false);
   const [quickMode, setQuickMode] = useState<QuickMode>("all");
   const [search, setSearch] = useState("");
   const [opportunityType, setOpportunityType] = useState<"all" | UnifiedOpportunityType>("all");
@@ -71,15 +74,21 @@ export default function OpportunitiesPage() {
   const [sortBy, setSortBy] = useState<UnifiedOpportunitySortBy>("score");
 
   const loadData = useCallback(async () => {
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
     setLoading(true);
     try {
       const response = await fetch("/api/opportunities", { cache: "no-store" });
       const payload = (await response.json()) as OpportunitiesApiResponse;
       setRows(payload.data ?? []);
       setErrors(payload.errors ?? []);
+      setStale(Boolean(payload.stale));
       setMeta(payload.meta ?? null);
       setUpdatedAt(payload.updatedAt ?? Date.now());
+    } catch (error) {
+      setErrors([error instanceof Error ? error.message : "数据加载失败，请稍后重试。"]);
     } finally {
+      requestInFlight.current = false;
       setLoading(false);
     }
   }, []);
@@ -205,7 +214,12 @@ export default function OpportunitiesPage() {
         </div>
       </FilterPanel>
 
-      {errors.length > 0 ? <p className="border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">部分数据源失败：{errors.join(" | ")}</p> : null}
+      {errors.length > 0 || stale ? (
+        <p className="border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+          {errors.length > 0 ? "部分交易所数据获取失败，当前展示可用数据。" : null}
+          {stale ? " 当前为缓存数据。" : null}
+        </p>
+      ) : null}
 
       <DataTableShell>
         <table className="min-w-[1680px] border-collapse text-sm">

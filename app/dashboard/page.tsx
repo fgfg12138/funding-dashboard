@@ -2,7 +2,7 @@
 
 import { Search } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { RiskBadge, ScoreBadge, StatCard } from "@/components/ui/dashboard";
 import type {
@@ -15,6 +15,7 @@ import type {
 type ApiResponse<T> = {
   data: T;
   errors?: string[];
+  stale?: boolean;
   updatedAt: number;
 };
 
@@ -35,10 +36,14 @@ export default function DashboardPage() {
   });
   const [sortMode, setSortMode] = useState("spread");
   const [errors, setErrors] = useState<string[]>([]);
+  const [stale, setStale] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const requestInFlight = useRef(false);
 
   const loadData = useCallback(async () => {
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
     setLoading(true);
     try {
       const [summaryRes, crossRes, spotRes] = await Promise.all([
@@ -51,8 +56,12 @@ export default function DashboardPage() {
       setCrossRows(crossRes.data ?? []);
       setSpotRows(spotRes.data ?? []);
       setUpdatedAt(Math.max(summaryRes.updatedAt, crossRes.updatedAt, spotRes.updatedAt));
+      setStale(Boolean(summaryRes.stale || crossRes.stale || spotRes.stale));
       setErrors([...new Set([...(summaryRes.errors ?? []), ...(crossRes.errors ?? []), ...(spotRes.errors ?? [])])]);
+    } catch (error) {
+      setErrors([error instanceof Error ? error.message : "数据加载失败，请稍后重试。"]);
     } finally {
+      requestInFlight.current = false;
       setLoading(false);
     }
   }, []);
@@ -158,6 +167,13 @@ export default function DashboardPage() {
             {errors.length > 0 && <span className="text-amber-300">部分交易所接口异常，已降级展示可用数据</span>}
           </div>
         </section>
+
+        {(errors.length > 0 || stale) && (
+          <section className="border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+            {errors.length > 0 ? "部分交易所数据获取失败，当前展示可用数据。" : null}
+            {stale ? " 当前为缓存数据。" : null}
+          </section>
+        )}
 
         <section className="space-y-2">
           <SectionTitle title="跨交易所合约费率差套利" subtitle="空高正费率一边，多低费率或负费率一边" />
@@ -301,7 +317,7 @@ function SpotPerpTable({ loading, rows }: { loading: boolean; rows: SpotPerpOppo
 }
 
 function TableShell({ children }: { children: ReactNode }) {
-  return <div className="max-h-[520px] overflow-auto border border-slate-800 bg-panel">{children}</div>;
+  return <div className="max-h-[420px] overflow-auto border border-slate-800 bg-panel">{children}</div>;
 }
 
 function TableHead({ headers }: { headers: Array<[string, "left" | "right"]> }) {

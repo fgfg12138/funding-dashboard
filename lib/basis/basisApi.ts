@@ -1,5 +1,5 @@
 import { getFundingSnapshot } from "../data/fundingService";
-import type { FundingMarket, SpotMarket } from "../exchanges/types";
+import type { ExchangeSourceStatus, FundingMarket, SpotMarket } from "../exchanges/types";
 import { buildBasisOpportunities } from "./basisCalculations";
 import type { BasisOpportunity } from "./types";
 
@@ -7,6 +7,9 @@ export type BasisSnapshot = {
   fundingMarkets: FundingMarket[];
   spotMarkets: SpotMarket[];
   errors: string[];
+  updatedAt?: number;
+  stale?: boolean;
+  sourceStatus?: ExchangeSourceStatus;
 };
 
 export type BasisApiResponse = {
@@ -14,6 +17,7 @@ export type BasisApiResponse = {
   errors: string[];
   updatedAt: number;
   stale: boolean;
+  sourceStatus?: ExchangeSourceStatus;
 };
 
 export type BasisApiOptions = {
@@ -28,7 +32,8 @@ export async function getBasisOpportunitiesResponse(options: BasisApiOptions = {
   return {
     data: buildBasisOpportunities(snapshot.spotMarkets, snapshot.fundingMarkets, now),
     errors: snapshot.errors.filter((error): error is string => Boolean(error)),
-    updatedAt: now,
-    stale: false
+    updatedAt: snapshot.updatedAt ?? now,
+    stale: snapshot.stale ?? false,
+    sourceStatus: snapshot.sourceStatus
   };
 }

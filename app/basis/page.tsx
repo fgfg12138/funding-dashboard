@@ -2,7 +2,7 @@
 
 import { Search } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { RiskBadge, ScoreBadge, StatCard } from "@/components/ui/dashboard";
 import type { BasisOpportunity } from "@/lib/basis/types";
@@ -11,6 +11,7 @@ import type { ExchangeName } from "@/lib/exchanges/types";
 type BasisApiResponse = {
   data: BasisOpportunity[];
   errors?: string[];
+  stale?: boolean;
   updatedAt: number;
 };
 
@@ -19,8 +20,10 @@ const EXCHANGES: Array<"all" | ExchangeName> = ["all", "Binance", "OKX", "Bybit"
 export default function BasisPage() {
   const [rows, setRows] = useState<BasisOpportunity[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [stale, setStale] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const requestInFlight = useRef(false);
   const [search, setSearch] = useState("");
   const [exchange, setExchange] = useState<"all" | ExchangeName>("all");
   const [minAnnualized, setMinAnnualized] = useState(0);
@@ -29,14 +32,20 @@ export default function BasisPage() {
   const [recommendedOnly, setRecommendedOnly] = useState(false);
 
   const loadData = useCallback(async () => {
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
     setLoading(true);
     try {
       const response = await fetch("/api/basis/opportunities", { cache: "no-store" });
       const payload = (await response.json()) as BasisApiResponse;
       setRows(payload.data ?? []);
       setErrors(payload.errors ?? []);
+      setStale(Boolean(payload.stale));
       setUpdatedAt(payload.updatedAt ?? Date.now());
+    } catch (error) {
+      setErrors([error instanceof Error ? error.message : "数据加载失败，请稍后重试。"]);
     } finally {
+      requestInFlight.current = false;
       setLoading(false);
     }
   }, []);
@@ -112,7 +121,12 @@ export default function BasisPage() {
           <span>当前行数: {filteredRows.length}</span>
           <span>只读 / 不交易 / 无 API Key</span>
         </div>
-        {errors.length > 0 ? <p className="mt-2 text-xs text-amber-300">部分数据源失败：{errors.join(" | ")}</p> : null}
+        {errors.length > 0 || stale ? (
+          <p className="mt-2 border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+            {errors.length > 0 ? "部分交易所数据获取失败，当前展示可用数据。" : null}
+            {stale ? " 当前为缓存数据。" : null}
+          </p>
+        ) : null}
       </section>
 
       <section className="max-h-[520px] overflow-auto border border-slate-800 bg-slate-950/30">

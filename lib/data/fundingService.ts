@@ -8,30 +8,99 @@ import type {
   CrossExchangeOpportunity,
   DashboardSummary,
   DebugMarketRow,
+  ExchangeName,
+  ExchangeSourceStatus,
   FundingMarket,
   SpotMarket,
   SpotPerpOpportunity
 } from "../exchanges/types";
-import { getCached } from "./cache";
 import { saveHistorySnapshot } from "./historyStore";
 
 const CACHE_TTL_MS = 45_000;
+const EXCHANGES: ExchangeName[] = ["Binance", "OKX", "Bybit"];
 
-export async function getFundingSnapshot() {
-  return getCached("funding-snapshot", CACHE_TTL_MS, async () => {
-    const [funding, spot] = await Promise.all([fetchAllFundingMarkets(), fetchAllSpotMarkets()]);
-    try {
-      await saveHistorySnapshot({ fundingMarkets: funding.data, spotMarkets: spot.data });
-    } catch (error) {
-      console.warn("Failed to save funding history snapshot", error);
+export type FundingSnapshot = {
+  fundingMarkets: FundingMarket[];
+  spotMarkets: SpotMarket[];
+  errors: string[];
+  updatedAt: number;
+  stale: boolean;
+  sourceStatus: ExchangeSourceStatus;
+};
+
+export type MarketFetchResult<T> = {
+  data: T[];
+  error?: string;
+  sourceStatus: ExchangeSourceStatus;
+};
+
+export type FundingSnapshotOptions = {
+  cacheKey?: string;
+  fetchFundingMarkets?: () => Promise<MarketFetchResult<FundingMarket>>;
+  fetchSpotMarkets?: () => Promise<MarketFetchResult<SpotMarket>>;
+  now?: number;
+  saveHistory?: boolean;
+  ttlMs?: number;
+};
+
+type SnapshotCacheEntry = {
+  expiresAt: number;
+  inFlight?: Promise<FundingSnapshot>;
+  snapshot?: FundingSnapshot;
+};
+
+const snapshotCache = new Map<string, SnapshotCacheEntry>();
+
+export async function getFundingSnapshot(options: FundingSnapshotOptions = {}): Promise<FundingSnapshot> {
+  const cacheKey = options.cacheKey ?? "funding-snapshot";
+  const now = options.now ?? Date.now();
+  const ttlMs = options.ttlMs ?? CACHE_TTL_MS;
+  const cached = snapshotCache.get(cacheKey);
+
+  if (cached?.snapshot && cached.expiresAt > now) {
+    return { ...cached.snapshot, stale: false };
+  }
+
+  if (cached?.inFlight) {
+    return cached.inFlight;
+  }
+
+  const entry = cached ?? { expiresAt: 0 };
+  const inFlight = loadFundingSnapshot(options, now).then(
+    (snapshot) => {
+      snapshotCache.set(cacheKey, {
+        expiresAt: now + ttlMs,
+        snapshot
+      });
+      return snapshot;
+    },
+    (error) => {
+      if (entry.snapshot) {
+        const staleSnapshot: FundingSnapshot = {
+          ...entry.snapshot,
+          errors: [...entry.snapshot.errors, error instanceof Error ? error.message : String(error)],
+          sourceStatus: staleSourceStatus(),
+          stale: true,
+          updatedAt: now
+        };
+        snapshotCache.set(cacheKey, {
+          expiresAt: now + Math.min(ttlMs, 15_000),
+          snapshot: staleSnapshot
+        });
+        return staleSnapshot;
+      }
+
+      snapshotCache.delete(cacheKey);
+      throw error;
     }
+  );
 
-    return {
-      fundingMarkets: funding.data,
-      spotMarkets: spot.data,
-      errors: [funding.error, spot.error].filter(Boolean)
-    };
+  snapshotCache.set(cacheKey, {
+    ...entry,
+    inFlight
   });
+
+  return inFlight;
 }
 
 export async function getCrossExchangeOpportunities(): Promise<CrossExchangeOpportunity[]> {
@@ -46,14 +115,18 @@ export async function getSpotPerpOpportunities(): Promise<SpotPerpOpportunity[]>
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   const snapshot = await getFundingSnapshot();
-  const cross = buildCrossExchangeOpportunities(snapshot.fundingMarkets);
-  const singleAnnualized = snapshot.fundingMarkets.map((market) =>
+  return buildDashboardSummary(snapshot.fundingMarkets);
+}
+
+export function buildDashboardSummary(fundingMarkets: FundingMarket[]): DashboardSummary {
+  const cross = buildCrossExchangeOpportunities(fundingMarkets);
+  const singleAnnualized = fundingMarkets.map((market) =>
     calculateAnnualizedRate(market.fundingRate, market.fundingIntervalHours)
   );
   const best = cross[0];
 
   return {
-    totalPairs: new Set(snapshot.fundingMarkets.map((market) => market.symbol)).size,
+    totalPairs: new Set(fundingMarkets.map((market) => market.symbol)).size,
     maxAnnualizedSpread: best?.annualizedSpread ?? 0,
     bestDirection: best?.direction ?? "-",
     spreadAbove10Count: cross.filter((item) => item.annualizedSpread > 10).length,
@@ -63,8 +136,11 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
 
 export async function getDebugMarketRows(): Promise<DebugMarketRow[]> {
   const snapshot = await getFundingSnapshot();
+  return buildDebugMarketRows(snapshot.fundingMarkets);
+}
 
-  return snapshot.fundingMarkets
+export function buildDebugMarketRows(fundingMarkets: FundingMarket[]): DebugMarketRow[] {
+  return fundingMarkets
     .map((market) => ({
       exchange: market.exchange,
       rawSymbol: market.rawSymbol,
@@ -118,4 +194,46 @@ function groupBy<T>(items: T[], keyFn: (item: T) => string): Map<string, T[]> {
   }
 
   return grouped;
+}
+
+async function loadFundingSnapshot(options: FundingSnapshotOptions, now: number): Promise<FundingSnapshot> {
+  const fetchFundingMarkets = options.fetchFundingMarkets ?? fetchAllFundingMarkets;
+  const fetchSpotMarkets = options.fetchSpotMarkets ?? fetchAllSpotMarkets;
+  const [funding, spot] = await Promise.all([fetchFundingMarkets(), fetchSpotMarkets()]);
+  const snapshot: FundingSnapshot = {
+    fundingMarkets: funding.data,
+    spotMarkets: spot.data,
+    errors: [funding.error, spot.error].filter((error): error is string => Boolean(error)),
+    updatedAt: now,
+    stale: false,
+    sourceStatus: combineSourceStatus(funding.sourceStatus, spot.sourceStatus)
+  };
+
+  if (options.saveHistory !== false) {
+    try {
+      await saveHistorySnapshot({ fundingMarkets: funding.data, spotMarkets: spot.data });
+    } catch (error) {
+      console.warn("Failed to save funding history snapshot", error);
+    }
+  }
+
+  return snapshot;
+}
+
+function combineSourceStatus(funding: ExchangeSourceStatus, spot: ExchangeSourceStatus): ExchangeSourceStatus {
+  return EXCHANGES.reduce((status, exchange) => {
+    status[exchange] = funding[exchange] === "failed" || spot[exchange] === "failed" ? "failed" : "ok";
+    return status;
+  }, {} as ExchangeSourceStatus);
+}
+
+function staleSourceStatus(): ExchangeSourceStatus {
+  return EXCHANGES.reduce((status, exchange) => {
+    status[exchange] = "stale";
+    return status;
+  }, {} as ExchangeSourceStatus);
+}
+
+export function resetFundingSnapshotCacheForTests() {
+  snapshotCache.clear();
 }

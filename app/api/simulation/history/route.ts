@@ -8,7 +8,10 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     data: await getSimulationHistory(limit),
-    updatedAt: Date.now()
+    errors: [],
+    updatedAt: Date.now(),
+    stale: false,
+    sourceStatus: {}
   });
 }
 

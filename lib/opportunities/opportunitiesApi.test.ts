@@ -51,7 +51,10 @@ describe("opportunitiesApi", () => {
         return {
           fundingMarkets,
           spotMarkets,
-          errors: ["partial exchange warning"]
+          errors: ["partial exchange warning"],
+          sourceStatus: { Binance: "ok", OKX: "failed", Bybit: "ok" },
+          stale: true,
+          updatedAt: 888
         };
       },
       now: 999
@@ -60,8 +63,9 @@ describe("opportunitiesApi", () => {
     expect(snapshotLoaderCalls).toBe(1);
     expect(response).toMatchObject({
       errors: ["partial exchange warning"],
-      updatedAt: 999,
-      stale: false,
+      updatedAt: 888,
+      stale: true,
+      sourceStatus: { Binance: "ok", OKX: "failed", Bybit: "ok" },
       meta: {
         fundingMarketCount: 2,
         spotMarketCount: 1,

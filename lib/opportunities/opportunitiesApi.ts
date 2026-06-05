@@ -1,6 +1,6 @@
 import { buildBasisOpportunities } from "../basis/basisCalculations";
 import { buildCrossExchangeOpportunities, buildSpotPerpOpportunities, getFundingSnapshot } from "../data/fundingService";
-import type { FundingMarket, SpotMarket } from "../exchanges/types";
+import type { ExchangeSourceStatus, FundingMarket, SpotMarket } from "../exchanges/types";
 import { buildUnifiedOpportunities } from "./unifiedOpportunities";
 import type { UnifiedOpportunity } from "./types";
 
@@ -8,6 +8,9 @@ export type UnifiedOpportunitySnapshot = {
   fundingMarkets: FundingMarket[];
   spotMarkets: SpotMarket[];
   errors: Array<string | undefined>;
+  updatedAt?: number;
+  stale?: boolean;
+  sourceStatus?: ExchangeSourceStatus;
 };
 
 export type SourceSnapshotMeta = {
@@ -25,6 +28,7 @@ export type UnifiedOpportunitiesApiResponse = {
   errors: string[];
   updatedAt: number;
   stale: boolean;
+  sourceStatus?: ExchangeSourceStatus;
   meta: SourceSnapshotMeta;
 };
 
@@ -47,8 +51,9 @@ export async function getUnifiedOpportunitiesResponse(
   return {
     data,
     errors,
-    updatedAt,
-    stale: false,
+    updatedAt: snapshot.updatedAt ?? updatedAt,
+    stale: snapshot.stale ?? false,
+    sourceStatus: snapshot.sourceStatus,
     meta: {
       fundingMarketCount: snapshot.fundingMarkets.length,
       spotMarketCount: snapshot.spotMarkets.length,

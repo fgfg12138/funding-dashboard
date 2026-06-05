@@ -16,7 +16,10 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     data: filtered,
-    updatedAt: Date.now()
+    errors: [],
+    updatedAt: Date.now(),
+    stale: false,
+    sourceStatus: {}
   });
 }
 

@@ -1,4 +1,6 @@
 export type ExchangeName = "Binance" | "OKX" | "Bybit";
+export type ExchangeSourceState = "ok" | "failed" | "stale";
+export type ExchangeSourceStatus = Record<ExchangeName, ExchangeSourceState>;
 
 export type NormalizedSymbol = {
   symbol: string;

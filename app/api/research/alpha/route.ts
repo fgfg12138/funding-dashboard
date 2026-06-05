@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
     data: buildAlphaApiPayload(samples, request.nextUrl.searchParams),
     errors: [],
     updatedAt: now,
-    stale: false
+    stale: false,
+    sourceStatus: {}
   });
 }
 

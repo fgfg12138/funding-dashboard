@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
-import { getDashboardSummary, getFundingSnapshot } from "@/lib/data/fundingService";
+import { buildDashboardSummary, getFundingSnapshot } from "@/lib/data/fundingService";
 
 export async function GET() {
-  const [summary, snapshot] = await Promise.all([getDashboardSummary(), getFundingSnapshot()]);
+  const snapshot = await getFundingSnapshot();
 
   return NextResponse.json({
-    data: summary,
+    data: buildDashboardSummary(snapshot.fundingMarkets),
     errors: snapshot.errors,
-    updatedAt: Date.now(),
-    stale: false
+    updatedAt: snapshot.updatedAt,
+    stale: snapshot.stale,
+    sourceStatus: snapshot.sourceStatus
   });
 }

@@ -35,7 +35,10 @@ describe("basisApi", () => {
       snapshotLoader: async () => ({
         fundingMarkets,
         spotMarkets,
-        errors: []
+        errors: [],
+        sourceStatus: { Binance: "ok", OKX: "failed", Bybit: "ok" },
+        stale: true,
+        updatedAt: 123
       }),
       now: Date.now()
     });
@@ -49,8 +52,9 @@ describe("basisApi", () => {
         }
       ],
       errors: [],
-      updatedAt: expect.any(Number),
-      stale: false
+      updatedAt: 123,
+      stale: true,
+      sourceStatus: { Binance: "ok", OKX: "failed", Bybit: "ok" }
     });
     expect(response.data[0].score).toBeGreaterThanOrEqual(0);
     expect(response.data[0].riskTags).toEqual(expect.any(Array));
