@@ -43,7 +43,7 @@ export default async function ResearchPage({
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Opportunity Validation Engine</p>
             <h1 className="mt-2 text-2xl font-semibold text-white">Research</h1>
-            <p className="mt-1 text-sm text-slate-400">Read-only historical validation for funding opportunities. No trading, no API keys.</p>
+            <p className="mt-1 text-sm text-slate-400">只读 historical validation for funding opportunities. 不交易, 无 API Key.</p>
           </div>
           <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/dashboard">
             Back to dashboard
@@ -65,7 +65,7 @@ export default async function ResearchPage({
           <div className="flex flex-wrap gap-3 text-xs text-slate-500">
             <span>{rows.length} snapshots</span>
             <span>Window {research.windowHours}h</span>
-            <span>Updated {new Date(research.generatedAt).toLocaleTimeString()}</span>
+            <span>更新时间 {new Date(research.generatedAt).toLocaleTimeString()}</span>
           </div>
         </section>
 

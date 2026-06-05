@@ -24,6 +24,7 @@ export type UnifiedOpportunitiesApiResponse = {
   data: UnifiedOpportunity[];
   errors: string[];
   updatedAt: number;
+  stale: boolean;
   meta: SourceSnapshotMeta;
 };
 
@@ -47,6 +48,7 @@ export async function getUnifiedOpportunitiesResponse(
     data,
     errors,
     updatedAt,
+    stale: false,
     meta: {
       fundingMarketCount: snapshot.fundingMarkets.length,
       spotMarketCount: snapshot.spotMarkets.length,

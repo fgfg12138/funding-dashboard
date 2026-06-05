@@ -59,7 +59,7 @@ export default async function AlphaDrilldownPage({
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-amber-300">Alpha Drilldown Engine</p>
             <h1 className="mt-2 text-2xl font-semibold text-white">{alpha?.symbol ?? "Alpha not found"}</h1>
-            <p className="mt-1 text-sm text-slate-400">Read-only Alpha explanation. No API keys, no execution, no trading.</p>
+            <p className="mt-1 text-sm text-slate-400">只读 Alpha explanation. 无 API Key, 不执行, 不交易.</p>
           </div>
           <div className="flex gap-3 text-sm">
             <Link className="text-cyan-300 hover:text-cyan-100" href="/alpha">
@@ -90,7 +90,7 @@ export default async function AlphaDrilldownPage({
           <div className="flex flex-wrap gap-3 text-xs text-slate-500">
             <span>{opportunityRows.length} opportunity snapshots</span>
             <span>{fundingRows.length} funding snapshots</span>
-            <span>Updated {new Date(now).toLocaleTimeString()}</span>
+            <span>更新时间 {new Date(now).toLocaleTimeString()}</span>
           </div>
         </section>
 

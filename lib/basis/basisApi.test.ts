@@ -49,7 +49,8 @@ describe("basisApi", () => {
         }
       ],
       errors: [],
-      updatedAt: expect.any(Number)
+      updatedAt: expect.any(Number),
+      stale: false
     });
     expect(response.data[0].score).toBeGreaterThanOrEqual(0);
     expect(response.data[0].riskTags).toEqual(expect.any(Array));

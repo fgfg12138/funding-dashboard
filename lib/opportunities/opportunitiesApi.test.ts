@@ -61,6 +61,7 @@ describe("opportunitiesApi", () => {
     expect(response).toMatchObject({
       errors: ["partial exchange warning"],
       updatedAt: 999,
+      stale: false,
       meta: {
         fundingMarketCount: 2,
         spotMarketCount: 1,

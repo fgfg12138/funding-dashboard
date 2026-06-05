@@ -54,7 +54,7 @@ export default function DebugPage() {
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Market Debug</p>
             <h1 className="mt-2 text-2xl font-semibold text-white">Normalized Funding Markets</h1>
-            <p className="mt-1 text-sm text-slate-400">Read-only raw exchange fields mapped to the internal funding market model.</p>
+            <p className="mt-1 text-sm text-slate-400">只读 raw exchange fields mapped to the internal funding market model.</p>
           </div>
           <button
             className="inline-flex h-10 items-center justify-center gap-2 rounded border border-cyan-400/50 bg-cyan-400/10 px-4 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-wait disabled:opacity-60"
@@ -79,7 +79,7 @@ export default function DebugPage() {
           </label>
           <div className="flex flex-wrap gap-3 text-xs text-slate-500">
             <span>{filteredRows.length} / {rows.length} rows</span>
-            <span>Updated {updatedAt ? new Date(updatedAt).toLocaleTimeString() : "-"}</span>
+            <span>更新时间 {updatedAt ? new Date(updatedAt).toLocaleTimeString() : "-"}</span>
             {errors.length > 0 && <span className="text-amber-300">Partial exchange fetch failure</span>}
             {filteredRows.length > 500 && <span className="text-cyan-300">{LIMITED_DEBUG_MESSAGE}</span>}
           </div>

@@ -6,17 +6,17 @@ export type NavItem = {
   label: string;
 };
 
-const DEFAULT_NAV_ITEMS: NavItem[] = [
-  { href: "/opportunities", label: "Opportunities" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/basis", label: "Basis" },
-  { href: "/alpha", label: "Alpha" },
-  { href: "/heatmap", label: "Heatmap" },
-  { href: "/notifications", label: "Notifications" },
-  { href: "/simulation", label: "Simulation" },
-  { href: "/strategies", label: "Strategies" },
-  { href: "/risk-rules", label: "Risk Rules" },
-  { href: "/adl-monitor", label: "ADL" }
+export const APP_NAV_ITEMS: NavItem[] = [
+  { href: "/opportunities", label: "机会总览" },
+  { href: "/dashboard", label: "资金费率看板" },
+  { href: "/basis", label: "基差看板" },
+  { href: "/alpha", label: "Alpha发现" },
+  { href: "/factors", label: "因子研究" },
+  { href: "/notifications", label: "通知中心" },
+  { href: "/simulation", label: "模拟回测" },
+  { href: "/strategies", label: "策略管理" },
+  { href: "/risk-rules", label: "风险规则" },
+  { href: "/adl-monitor", label: "ADL监控" }
 ];
 
 export function AppShell({
@@ -24,7 +24,7 @@ export function AppShell({
   activeHref,
   children,
   eyebrow,
-  navItems = DEFAULT_NAV_ITEMS,
+  navItems = APP_NAV_ITEMS,
   subtitle,
   title
 }: {
@@ -56,7 +56,7 @@ export function AppShell({
   );
 }
 
-export function TopNav({ activeHref, items = DEFAULT_NAV_ITEMS }: { activeHref?: string; items?: NavItem[] }) {
+export function TopNav({ activeHref, items = APP_NAV_ITEMS }: { activeHref?: string; items?: NavItem[] }) {
   return (
     <nav className="flex gap-1 overflow-x-auto px-3 py-2 text-xs">
       {items.map((item) => {
@@ -152,5 +152,5 @@ export function TypeBadge({ label }: { label: "CrossExchange" | "SpotPerp" | "Ba
 }
 
 export function ReadOnlyPill() {
-  return <span className="border border-emerald-400/40 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-200">Read Only / No Trading</span>;
+  return <span className="border border-emerald-400/40 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-200">只读 / 不交易</span>;
 }

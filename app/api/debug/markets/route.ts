@@ -7,6 +7,7 @@ export async function GET() {
   return NextResponse.json({
     data,
     errors: snapshot.errors,
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
+    stale: false
   });
 }

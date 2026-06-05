@@ -11,6 +11,7 @@ import {
 import { RefreshCw, Search } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { TopNav } from "@/components/TopNav";
 import type {
   CrossExchangeOpportunity,
   DashboardSummary,
@@ -142,6 +143,7 @@ export default function DashboardPage() {
             刷新
           </button>
         </header>
+        <TopNav activeHref="/dashboard" />
 
         <SummaryCards summary={summary} />
 

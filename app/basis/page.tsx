@@ -4,6 +4,7 @@ import { RefreshCw, Search } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { TopNav } from "@/components/TopNav";
 import type { BasisOpportunity } from "@/lib/basis/types";
 import type { ExchangeName } from "@/lib/exchanges/types";
 
@@ -67,7 +68,7 @@ export default function BasisPage() {
         <header className="flex flex-col gap-3 border-b border-slate-800 pb-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Basis / Short Spread Board</p>
-            <h1 className="mt-2 text-2xl font-semibold text-white">Basis</h1>
+            <h1 className="mt-2 text-2xl font-semibold text-white">基差看板</h1>
             <p className="mt-1 text-sm text-slate-400">
               买现货 + 空永续的只读基差看板。只调用公开行情，不接 API Key，不下单。
             </p>
@@ -96,6 +97,7 @@ export default function BasisPage() {
             </button>
           </div>
         </header>
+        <TopNav activeHref="/basis" />
 
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <StatCard label="机会数量" value={stats.count.toLocaleString()} />
@@ -140,7 +142,7 @@ export default function BasisPage() {
             </label>
           </div>
           <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
-            <span>Rows: {filteredRows.length}</span>
+            <span>行数: {filteredRows.length}</span>
             <span>Updated: {formatTime(updatedAt)}</span>
             <span>Read Only / No Trading / No API Key</span>
           </div>

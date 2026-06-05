@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { NotificationEvaluateButton } from "./NotificationEvaluateButton";
+import { TopNav } from "@/components/TopNav";
 import { queryNotificationEvents } from "@/lib/notifications/notificationStore";
 import type { NotificationEvent, NotificationEventType, NotificationSeverity } from "@/lib/notifications/notificationRules";
 
@@ -33,7 +34,7 @@ export default async function NotificationsPage({
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-amber-300">Notification Engine</p>
             <h1 className="mt-2 text-2xl font-semibold text-white">Research Notifications</h1>
-            <p className="mt-1 text-sm text-slate-400">Read-only in-app signal log. No API keys, no execution, no trading.</p>
+            <p className="mt-1 text-sm text-slate-400">只读 in-app signal log. 无 API Key, 不执行, 不交易.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/dashboard">
@@ -66,6 +67,7 @@ export default async function NotificationsPage({
             <NotificationEvaluateButton />
           </div>
         </header>
+        <TopNav activeHref="/notifications" />
 
         <section className="flex flex-col gap-3 border-y border-slate-800 bg-slate-950/40 py-4 lg:flex-row lg:items-center lg:justify-between">
           <form action="/notifications" className="flex flex-wrap items-end gap-3">
@@ -148,7 +150,7 @@ function NotificationTable({ events }: { events: NotificationEvent[] }) {
             {events.length === 0 && (
               <tr>
                 <td className="px-3 py-8 text-center text-slate-500" colSpan={7}>
-                  No notifications yet. Run Evaluate to scan current research history.
+                  暂无通知。点击评估可扫描当前研究历史。
                 </td>
               </tr>
             )}

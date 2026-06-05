@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TopNav } from "@/components/TopNav";
 import { queryAllFundingHistory, queryAllOpportunityHistory } from "@/lib/data/historyStore";
 import { buildAlphaDiscovery, type AlphaOpportunity, type AlphaType } from "@/lib/research/alphaScore";
 import { buildFundingFactorResearch } from "@/lib/research/fundingFactors";
@@ -54,7 +55,7 @@ export default async function AlphaPage({
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-amber-300">Alpha Discovery Engine</p>
             <h1 className="mt-2 text-2xl font-semibold text-white">Funding Alpha Discovery</h1>
-            <p className="mt-1 text-sm text-slate-400">Read-only opportunity discovery from funding and opportunity history.</p>
+            <p className="mt-1 text-sm text-slate-400">只读 opportunity discovery from funding and opportunity history.</p>
           </div>
           <div className="flex gap-3 text-sm">
             <Link className="text-cyan-300 hover:text-cyan-100" href="/factors">
@@ -86,6 +87,7 @@ export default async function AlphaPage({
             </Link>
           </div>
         </header>
+        <TopNav activeHref="/alpha" />
 
         <section className="flex flex-col gap-3 border-y border-slate-800 bg-slate-950/40 py-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap gap-2">
@@ -122,7 +124,7 @@ export default async function AlphaPage({
             <span>{factors.samples.length} samples</span>
             <span>{opportunityRows.length} opportunity snapshots</span>
             <span>{fundingRows.length} funding snapshots</span>
-            <span>Updated {new Date(factors.generatedAt).toLocaleTimeString()}</span>
+            <span>更新时间 {new Date(factors.generatedAt).toLocaleTimeString()}</span>
           </div>
         </section>
 
@@ -196,7 +198,7 @@ function AlphaTable({ rows, title }: { rows: AlphaOpportunity[]; title: string }
             {rows.length === 0 && (
               <tr>
                 <td className="px-3 py-8 text-center text-slate-500" colSpan={13}>
-                  No alpha opportunities match the current filters.
+                  暂无符合筛选条件的 Alpha 机会。
                 </td>
               </tr>
             )}

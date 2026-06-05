@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     data: buildFundingHeatmap(rows, { now, windowHours, exchange, minSnapshotCount, limit }),
-    updatedAt: now
+    errors: [],
+    updatedAt: now,
+    stale: false
   });
 }
 

@@ -15,7 +15,9 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     data: buildFundingFactorResearch({ opportunityRows, fundingRows, now, windowHours }),
-    updatedAt: now
+    errors: [],
+    updatedAt: now,
+    stale: false
   });
 }
 

@@ -40,19 +40,19 @@ type QuickMode = "all" | UnifiedOpportunityType | "recommended" | "highRisk";
 const TYPES: Array<"all" | UnifiedOpportunityType> = ["all", "CrossExchange", "SpotPerp", "Basis"];
 const EXCHANGES: Array<"all" | ExchangeName> = ["all", "Binance", "OKX", "Bybit"];
 const QUICK_MODES: Array<{ label: string; value: QuickMode }> = [
-  { label: "All", value: "all" },
-  { label: "Cross Exchange", value: "CrossExchange" },
+  { label: "全部", value: "all" },
+  { label: "跨所费率差", value: "CrossExchange" },
   { label: "Spot/Perp", value: "SpotPerp" },
   { label: "Basis", value: "Basis" },
-  { label: "Recommended", value: "recommended" },
-  { label: "High Risk", value: "highRisk" }
+  { label: "推荐", value: "recommended" },
+  { label: "高风险", value: "highRisk" }
 ];
 const SORT_OPTIONS: Array<{ label: string; value: UnifiedOpportunitySortBy }> = [
-  { label: "Score", value: "score" },
-  { label: "Annualized", value: "annualized" },
-  { label: "Estimated Carry", value: "estimatedCarry" },
-  { label: "Volume", value: "volume" },
-  { label: "Next Funding", value: "nextFunding" }
+  { label: "评分", value: "score" },
+  { label: "年化", value: "annualized" },
+  { label: "估算Carry", value: "estimatedCarry" },
+  { label: "成交量", value: "volume" },
+  { label: "下次资金费率", value: "nextFunding" }
 ];
 
 export default function OpportunitiesPage() {
@@ -128,30 +128,30 @@ export default function OpportunitiesPage() {
       actions={
         <>
           <div className="border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-slate-400">
-            Updated <span className="text-slate-100">{formatTime(updatedAt)}</span>
+            更新时间 <span className="text-slate-100">{formatTime(updatedAt)}</span>
           </div>
           <button
             className="inline-flex h-9 items-center justify-center gap-2 border border-cyan-400/50 bg-cyan-400/10 px-3 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-wait disabled:opacity-60"
             disabled={loading}
             onClick={() => void loadData()}
-            title="Refresh public market data"
+            title="刷新公开行情"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh
+            刷新
           </button>
           <ReadOnlyPill />
         </>
       }
-      eyebrow="V1 Main Board"
-      subtitle="Read-only multi-exchange funding and basis opportunity board"
+      eyebrow="V1 主看板"
+      subtitle="只读多交易所 Funding 与 Basis 机会看板"
       title="Funding Arbitrage OS"
     >
       <section className="grid gap-2 md:grid-cols-3 xl:grid-cols-7">
-        <StatCard label="Total Opportunities" value={stats.total.toLocaleString()} />
-        <StatCard label="Recommended" value={stats.recommended.toLocaleString()} tone="cyan" />
-        <StatCard label="Highest Score" value={stats.highestScore.toLocaleString()} tone="green" />
-        <StatCard label="Highest Annualized" value={`${formatPercent(stats.highestAnnualized)}%`} tone="yellow" />
-        <StatCard label="High Risk" value={stats.highRisk.toLocaleString()} tone="orange" />
+        <StatCard label="总机会数" value={stats.total.toLocaleString()} />
+        <StatCard label="推荐机会" value={stats.recommended.toLocaleString()} tone="cyan" />
+        <StatCard label="最高评分" value={stats.highestScore.toLocaleString()} tone="green" />
+        <StatCard label="最高年化" value={`${formatPercent(stats.highestAnnualized)}%`} tone="yellow" />
+        <StatCard label="高风险" value={stats.highRisk.toLocaleString()} tone="orange" />
         <StatCard label="Funding Markets" value={(meta?.fundingMarketCount ?? 0).toLocaleString()} />
         <StatCard label="Spot Markets" value={(meta?.spotMarketCount ?? 0).toLocaleString()} />
       </section>
@@ -176,17 +176,17 @@ export default function OpportunitiesPage() {
       <FilterPanel
         footer={
           <>
-            <span>Rows: {filteredRows.length.toLocaleString()}</span>
+            <span>当前行数: {filteredRows.length.toLocaleString()}</span>
             <span>Cross: {meta?.crossCount?.toLocaleString() ?? "-"}</span>
             <span>Spot/Perp: {meta?.spotPerpCount?.toLocaleString() ?? "-"}</span>
             <span>Basis: {meta?.basisCount?.toLocaleString() ?? "-"}</span>
             <span>Unified: {meta?.unifiedCount?.toLocaleString() ?? "-"}</span>
-            <span>Read Only / No API Key / No Trading / No Execution</span>
+            <span>只读 / 无 API Key / 不交易 / 不执行</span>
           </>
         }
       >
         <label className="space-y-1 text-sm">
-          <span className="text-xs text-slate-400">Symbol Search</span>
+          <span className="text-xs text-slate-400">搜索币种</span>
           <span className="flex h-9 items-center gap-2 border border-slate-700 bg-slate-950 px-3">
             <Search className="h-4 w-4 text-slate-500" />
             <input
@@ -197,24 +197,24 @@ export default function OpportunitiesPage() {
             />
           </span>
         </label>
-        <SelectFilter label="Type" value={opportunityType} onChange={(value) => setOpportunityType(value as "all" | UnifiedOpportunityType)}>
+        <SelectFilter label="类型" value={opportunityType} onChange={(value) => setOpportunityType(value as "all" | UnifiedOpportunityType)}>
           {TYPES.map((item) => (
             <option key={item} value={item}>
               {item}
             </option>
           ))}
         </SelectFilter>
-        <SelectFilter label="Exchange" value={exchange} onChange={(value) => setExchange(value as "all" | ExchangeName)}>
+        <SelectFilter label="交易所" value={exchange} onChange={(value) => setExchange(value as "all" | ExchangeName)}>
           {EXCHANGES.map((item) => (
             <option key={item} value={item}>
               {item}
             </option>
           ))}
         </SelectFilter>
-        <NumberFilter label="Min Score" step={5} value={minScore} onChange={setMinScore} />
-        <NumberFilter label="Min Annualized" step={5} value={minAnnualized} onChange={setMinAnnualized} />
-        <NumberFilter label="Min Volume" step={1000000} value={minVolume24h} onChange={setMinVolume24h} />
-        <SelectFilter label="Sort" value={sortBy} onChange={(value) => setSortBy(value as UnifiedOpportunitySortBy)}>
+        <NumberFilter label="最低评分" step={5} value={minScore} onChange={setMinScore} />
+        <NumberFilter label="最低年化" step={5} value={minAnnualized} onChange={setMinAnnualized} />
+        <NumberFilter label="最低成交量" step={1000000} value={minVolume24h} onChange={setMinVolume24h} />
+        <SelectFilter label="排序" value={sortBy} onChange={(value) => setSortBy(value as UnifiedOpportunitySortBy)}>
           {SORT_OPTIONS.map((item) => (
             <option key={item.value} value={item.value}>
               {item.label}
@@ -224,37 +224,44 @@ export default function OpportunitiesPage() {
         <div className="flex flex-col justify-end gap-2 text-sm text-slate-200">
           <label className="flex items-center gap-2">
             <input checked={recommendedOnly} className="h-4 w-4 accent-cyan-400" type="checkbox" onChange={(event) => setRecommendedOnly(event.target.checked)} />
-            <span>Recommended Only</span>
+            <span>只看推荐</span>
           </label>
           <label className="flex items-center gap-2">
             <input checked={hideHighRisk} className="h-4 w-4 accent-cyan-400" type="checkbox" onChange={(event) => setHideHighRisk(event.target.checked)} />
-            <span>Hide High Risk</span>
+            <span>隐藏高风险</span>
           </label>
         </div>
       </FilterPanel>
 
-      {errors.length > 0 ? <p className="border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">{errors.join(" | ")}</p> : null}
+      {errors.length > 0 ? <p className="border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">部分数据源失败：{errors.join(" | ")}</p> : null}
 
       <DataTableShell>
         <table className="min-w-[1680px] border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-slate-950 text-xs uppercase tracking-wide text-slate-500">
             <tr className="border-b border-slate-800">
-              <Th align="right">Score</Th>
-              <Th>Type</Th>
-              <Th>Risk</Th>
-              <Th>Symbol</Th>
-              <Th>Direction</Th>
-              <Th>Exchanges</Th>
-              <Th align="right">Annualized</Th>
-              <Th align="right">Spread / Basis</Th>
-              <Th align="right">Estimated Carry</Th>
-              <Th align="right">Volume 24h</Th>
-              <Th align="right">Open Interest</Th>
-              <Th>Next Funding</Th>
-              <Th>Reason</Th>
+              <Th align="right">评分</Th>
+              <Th>类型</Th>
+              <Th>风险</Th>
+              <Th>币种</Th>
+              <Th>方向</Th>
+              <Th>交易所</Th>
+              <Th align="right">年化</Th>
+              <Th align="right">价差 / Basis</Th>
+              <Th align="right">估算Carry</Th>
+              <Th align="right">24h成交量</Th>
+              <Th align="right">持仓量</Th>
+              <Th>下次资金费率</Th>
+              <Th>原因</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
+            {loading && rows.length === 0 ? (
+              <tr>
+                <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={13}>
+                  数据加载中...
+                </td>
+              </tr>
+            ) : null}
             {filteredRows.map((row) => (
               <tr className="bg-slate-950/20 hover:bg-slate-900/70" key={row.id}>
                 <Td align="right">
@@ -295,10 +302,10 @@ export default function OpportunitiesPage() {
                 </Td>
               </tr>
             ))}
-            {filteredRows.length === 0 ? (
+            {!loading && filteredRows.length === 0 ? (
               <tr>
                 <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={13}>
-                  No opportunities match the current filters.
+                  暂无符合条件的机会。
                 </td>
               </tr>
             ) : null}

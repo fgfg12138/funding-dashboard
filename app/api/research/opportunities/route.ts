@@ -21,7 +21,9 @@ export async function GET(request: NextRequest) {
       limit,
       filters: parseFilters(request)
     }),
-    updatedAt: now
+    errors: [],
+    updatedAt: now,
+    stale: false
   });
 }
 

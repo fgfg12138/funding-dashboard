@@ -15,7 +15,9 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     data: buildAlphaApiPayload(samples, request.nextUrl.searchParams),
-    updatedAt: now
+    errors: [],
+    updatedAt: now,
+    stale: false
   });
 }
 

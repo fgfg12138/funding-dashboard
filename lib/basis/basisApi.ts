@@ -13,6 +13,7 @@ export type BasisApiResponse = {
   data: BasisOpportunity[];
   errors: string[];
   updatedAt: number;
+  stale: boolean;
 };
 
 export type BasisApiOptions = {
@@ -27,6 +28,7 @@ export async function getBasisOpportunitiesResponse(options: BasisApiOptions = {
   return {
     data: buildBasisOpportunities(snapshot.spotMarkets, snapshot.fundingMarkets, now),
     errors: snapshot.errors.filter((error): error is string => Boolean(error)),
-    updatedAt: now
+    updatedAt: now,
+    stale: false
   };
 }

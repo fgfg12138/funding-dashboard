@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdlMonitorClient } from "./AdlMonitorClient";
+import { TopNav } from "@/components/TopNav";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export default function AdlMonitorPage() {
         <header className="flex flex-col gap-3 border-b border-slate-800 pb-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-red-300">ADL Monitor Center</p>
-            <h1 className="mt-2 text-2xl font-semibold text-white">ADL Monitor</h1>
+            <h1 className="mt-2 text-2xl font-semibold text-white">ADL监控</h1>
             <p className="mt-1 text-sm text-slate-400">
               模拟 ADL 监控与配置管理。只读研究页面，不读取真实账户仓位，不执行减仓。
             </p>
@@ -36,6 +37,7 @@ export default function AdlMonitorPage() {
             </Link>
           </div>
         </header>
+        <TopNav activeHref="/adl-monitor" />
 
         <AdlMonitorClient />
       </div>

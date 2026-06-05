@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TopNav } from "@/components/TopNav";
 import { queryAllFundingHistory, queryAllOpportunityHistory } from "@/lib/data/historyStore";
 import {
   buildFundingFactorResearch,
@@ -38,12 +39,13 @@ export default async function FactorsPage({
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Funding Factor Research</p>
             <h1 className="mt-2 text-2xl font-semibold text-white">Funding Factor Research</h1>
-            <p className="mt-1 text-sm text-slate-400">Read-only quartile analysis. No trading, no model fitting, no API keys.</p>
+            <p className="mt-1 text-sm text-slate-400">只读 quartile analysis. 不交易, no model fitting, 无 API Key.</p>
           </div>
           <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/dashboard">
             Back to dashboard
           </Link>
         </header>
+        <TopNav activeHref="/factors" />
 
         <section className="flex flex-col gap-3 border-y border-slate-800 bg-slate-950/40 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="inline-flex w-fit rounded border border-slate-700 bg-slate-950 p-1">
@@ -61,7 +63,7 @@ export default async function FactorsPage({
             <span>{research.samples.length} factor samples</span>
             <span>{opportunityRows.length} opportunity snapshots</span>
             <span>{fundingRows.length} funding snapshots</span>
-            <span>Updated {new Date(research.generatedAt).toLocaleTimeString()}</span>
+            <span>更新时间 {new Date(research.generatedAt).toLocaleTimeString()}</span>
           </div>
         </section>
 
@@ -157,7 +159,7 @@ function BucketTable({
             {buckets.length === 0 && (
               <tr>
                 <td className="px-3 py-8 text-center text-slate-500" colSpan={5}>
-                  No factor buckets yet. Let the dashboard collect more history.
+                  暂无因子分桶，请等待看板收集更多历史数据。
                 </td>
               </tr>
             )}

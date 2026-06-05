@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SimulationRunButton } from "./SimulationRunButton";
+import { TopNav } from "@/components/TopNav";
 import { getSimulationAccount, getSimulationHistory } from "@/lib/simulation/simService";
 import type { SimAccountSnapshot } from "@/lib/simulation/simAccount";
 
@@ -23,7 +24,7 @@ export default async function SimulationPage({
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-emerald-300">Paper Trading Simulation</p>
             <h1 className="mt-2 text-2xl font-semibold text-white">Execution Simulation Engine</h1>
-            <p className="mt-1 text-sm text-slate-400">Read-only simulation. No API keys, no real orders, no real positions.</p>
+            <p className="mt-1 text-sm text-slate-400">只读 simulation. 无 API Key, no real orders, no real positions.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/alpha">
@@ -53,6 +54,7 @@ export default async function SimulationPage({
             <SimulationRunButton />
           </div>
         </header>
+        <TopNav activeHref="/simulation" />
 
         <section className="flex flex-col gap-3 border-y border-slate-800 bg-slate-950/40 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="inline-flex w-fit rounded border border-slate-700 bg-slate-950 p-1">
@@ -156,7 +158,7 @@ function PositionsTable({ snapshot }: { snapshot: SimAccountSnapshot }) {
               <Header>Type</Header>
               <Header>Qty</Header>
               <Header>Entry</Header>
-              <Header>Alpha</Header>
+              <Header>Alpha发现</Header>
             </tr>
           </thead>
           <tbody>

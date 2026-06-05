@@ -28,7 +28,9 @@ export async function GET(
 
   return NextResponse.json({
     data,
-    updatedAt: now
+    errors: [],
+    updatedAt: now,
+    stale: false
   });
 }
 

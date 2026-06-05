@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TopNav } from "@/components/TopNav";
 import { queryAllFundingHistory } from "@/lib/data/historyStore";
 import { buildFundingHeatmap, type FundingHeatmapRow } from "@/lib/research/fundingHeatmap";
 import type { ExchangeName } from "@/lib/exchanges/types";
@@ -37,7 +38,7 @@ export default async function HeatmapPage({
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Funding Heatmap</p>
             <h1 className="mt-2 text-2xl font-semibold text-white">Funding Heatmap</h1>
-            <p className="mt-1 text-sm text-slate-400">Read-only historical funding aggregation by exchange and symbol.</p>
+            <p className="mt-1 text-sm text-slate-400">只读 historical funding aggregation by exchange and symbol.</p>
           </div>
           <div className="flex gap-3 text-sm">
             <Link className="text-cyan-300 hover:text-cyan-100" href="/notifications">
@@ -57,6 +58,7 @@ export default async function HeatmapPage({
             </Link>
           </div>
         </header>
+        <TopNav activeHref="/heatmap" />
 
         <section className="flex flex-col gap-3 border-y border-slate-800 bg-slate-950/40 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="inline-flex w-fit rounded border border-slate-700 bg-slate-950 p-1">
@@ -103,7 +105,7 @@ export default async function HeatmapPage({
           <div className="flex flex-wrap gap-3 text-xs text-slate-500">
             <span>{heatmap.rows.length} heatmap cells</span>
             <span>{rows.length} funding snapshots</span>
-            <span>Updated {new Date(heatmap.generatedAt).toLocaleTimeString()}</span>
+            <span>更新时间 {new Date(heatmap.generatedAt).toLocaleTimeString()}</span>
           </div>
         </section>
 
