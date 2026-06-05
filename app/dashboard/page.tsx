@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { RiskBadge, ScoreBadge, StatCard } from "@/components/ui/dashboard";
+import { DASHBOARD_MODULES, getDashboardModuleConfig, parseDashboardModule, type DashboardModule } from "@/lib/dashboard/dashboardModule";
 import type {
   CrossExchangeOpportunity,
   DashboardSummary,
@@ -22,6 +23,7 @@ type ApiResponse<T> = {
 const EXCHANGES: ExchangeName[] = ["Binance", "OKX", "Bybit"];
 
 export default function DashboardPage() {
+  const [activeModule, setActiveModule] = useState<DashboardModule>("spot-perp");
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [crossRows, setCrossRows] = useState<CrossExchangeOpportunity[]>([]);
   const [spotRows, setSpotRows] = useState<SpotPerpOpportunity[]>([]);
@@ -40,6 +42,16 @@ export default function DashboardPage() {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const requestInFlight = useRef(false);
+
+  useEffect(() => {
+    const syncModuleFromUrl = () => {
+      setActiveModule(parseDashboardModule(new URLSearchParams(window.location.search).get("module")));
+    };
+
+    syncModuleFromUrl();
+    window.addEventListener("popstate", syncModuleFromUrl);
+    return () => window.removeEventListener("popstate", syncModuleFromUrl);
+  }, []);
 
   const loadData = useCallback(async () => {
     if (requestInFlight.current) return;
@@ -104,6 +116,13 @@ export default function DashboardPage() {
       });
   }, [enabledExchanges, minVolume, recommendedOnly, search, sortMode, spotRows]);
 
+  const activeModuleConfig = getDashboardModuleConfig(activeModule);
+
+  const handleModuleChange = useCallback((module: DashboardModule) => {
+    setActiveModule(module);
+    window.history.pushState(null, "", `/dashboard?module=${module}`);
+  }, []);
+
   return (
     <PageShell
       activeHref="/dashboard"
@@ -163,7 +182,7 @@ export default function DashboardPage() {
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
             <span>跨所 {filteredCrossRows.length} 条</span>
-            <span>现货+合约 {filteredSpotRows.length} 条</span>
+            <span>现货 + 永续 {filteredSpotRows.length} 条</span>
             {errors.length > 0 && <span className="text-amber-300">部分交易所接口异常，已降级展示可用数据</span>}
           </div>
         </section>
@@ -175,14 +194,33 @@ export default function DashboardPage() {
           </section>
         )}
 
-        <section className="space-y-2">
-          <SectionTitle title="跨交易所合约费率差套利" subtitle="空高正费率一边，多低费率或负费率一边" />
-          <CrossExchangeTable loading={loading} rows={filteredCrossRows} />
+        <section className="flex flex-wrap items-center justify-between gap-2 border border-slate-800 bg-slate-950/40 p-2">
+          <div className="flex gap-1">
+            {DASHBOARD_MODULES.map((module) => (
+              <button
+                className={`h-9 border px-3 text-sm ${
+                  activeModule === module.table
+                    ? "border-cyan-400/60 bg-cyan-400/15 text-cyan-100"
+                    : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700 hover:text-slate-100"
+                }`}
+                key={module.table}
+                onClick={() => handleModuleChange(module.table)}
+                type="button"
+              >
+                {module.label}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-slate-500">当前模块：{activeModuleConfig.label}</span>
         </section>
 
         <section className="space-y-2">
-          <SectionTitle title="现货 + 永续合约资金费率套利" subtitle="买现货 + 开空正资金费率永续，仅展示数据" />
-          <SpotPerpTable loading={loading} rows={filteredSpotRows} />
+          <SectionTitle title={activeModuleConfig.title} subtitle={activeModuleConfig.subtitle} />
+          {activeModule === "cross" ? (
+            <CrossExchangeTable loading={loading} rows={filteredCrossRows} />
+          ) : (
+            <SpotPerpTable loading={loading} rows={filteredSpotRows} />
+          )}
         </section>
       </div>
     </PageShell>
@@ -309,7 +347,7 @@ function SpotPerpTable({ loading, rows }: { loading: boolean; rows: SpotPerpOppo
               <Td align="right">{formatUsd(row.volume24h)}</Td>
             </tr>
           ))}
-          {!loading && rows.length === 0 ? <EmptyRow colSpan={15} label="暂无符合条件的现货+永续机会。" /> : null}
+          {!loading && rows.length === 0 ? <EmptyRow colSpan={15} label="暂无符合条件的现货 + 永续机会。" /> : null}
         </tbody>
       </table>
     </TableShell>
@@ -317,7 +355,7 @@ function SpotPerpTable({ loading, rows }: { loading: boolean; rows: SpotPerpOppo
 }
 
 function TableShell({ children }: { children: ReactNode }) {
-  return <div className="max-h-[420px] overflow-auto border border-slate-800 bg-panel">{children}</div>;
+  return <div className="max-h-[560px] overflow-auto border border-slate-800 bg-panel">{children}</div>;
 }
 
 function TableHead({ headers }: { headers: Array<[string, "left" | "right"]> }) {
