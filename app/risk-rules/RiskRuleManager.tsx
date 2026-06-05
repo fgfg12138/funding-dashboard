@@ -34,10 +34,10 @@ const RULE_TYPES: RiskRuleType[] = [
   "OpenInterestBelowThreshold"
 ];
 const ACTIONS: Array<{ action: RiskRuleAction; label: string; icon: typeof Bell }> = [
-  { action: "Alert", label: "Alert", icon: Bell },
-  { action: "PauseStrategy", label: "Pause", icon: Pause },
-  { action: "StopStrategy", label: "Stop", icon: Square },
-  { action: "MarkRisk", label: "Mark Risk", icon: Tag }
+  { action: "Alert", label: "告警", icon: Bell },
+  { action: "PauseStrategy", label: "暂停", icon: Pause },
+  { action: "StopStrategy", label: "停止", icon: Square },
+  { action: "MarkRisk", label: "标记风险", icon: Tag }
 ];
 
 const EMPTY_FORM: RiskRuleFormState = {
@@ -110,36 +110,36 @@ export function RiskRuleManager() {
     <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
       <section className="rounded border border-slate-800 bg-panel">
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-          <h2 className="text-base font-semibold text-white">{editing ? "Edit Risk Rule" : "Create Risk Rule"}</h2>
+          <h2 className="text-base font-semibold text-white">{editing ? "编辑风险规则" : "创建风险规则"}</h2>
           {editing && (
             <button className="text-xs text-cyan-300 hover:text-cyan-100" onClick={() => setForm(EMPTY_FORM)} type="button">
-              New
+              新建
             </button>
           )}
         </div>
         <div className="space-y-3 p-4">
           {error && <div className="rounded border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</div>}
-          <TextInput label="Rule Name" onChange={(name) => setForm((prev) => ({ ...prev, name }))} value={form.name} />
+          <TextInput label="规则名称" onChange={(name) => setForm((prev) => ({ ...prev, name }))} value={form.name} />
           <div className="grid gap-3 sm:grid-cols-2">
-            <SelectInput label="Rule Type" onChange={(ruleType) => setForm((prev) => ({ ...prev, ruleType: ruleType as RiskRuleType }))} options={RULE_TYPES} value={form.ruleType} />
-            <SelectInput label="Action" onChange={(action) => setForm((prev) => ({ ...prev, action: action as RiskRuleAction }))} options={ACTIONS.map((item) => item.action)} value={form.action} />
+            <SelectInput label="规则类型" onChange={(ruleType) => setForm((prev) => ({ ...prev, ruleType: ruleType as RiskRuleType }))} options={RULE_TYPES} value={form.ruleType} />
+            <SelectInput label="动作" onChange={(action) => setForm((prev) => ({ ...prev, action: action as RiskRuleAction }))} options={ACTIONS.map((item) => item.action)} value={form.action} />
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
-            <NumberInput label="Threshold" onChange={(threshold) => setForm((prev) => ({ ...prev, threshold }))} step="0.0001" value={form.threshold} />
-            <TextInput label="Symbol" onChange={(symbol) => setForm((prev) => ({ ...prev, symbol }))} value={form.symbol} />
-            <SelectInput label="Exchange" onChange={(exchange) => setForm((prev) => ({ ...prev, exchange: exchange as "" | ExchangeName }))} options={EXCHANGES} value={form.exchange} />
+            <NumberInput label="阈值" onChange={(threshold) => setForm((prev) => ({ ...prev, threshold }))} step="0.0001" value={form.threshold} />
+            <TextInput label="币种" onChange={(symbol) => setForm((prev) => ({ ...prev, symbol }))} value={form.symbol} />
+            <SelectInput label="交易所" onChange={(exchange) => setForm((prev) => ({ ...prev, exchange: exchange as "" | ExchangeName }))} options={EXCHANGES} value={form.exchange} />
           </div>
-          <TextInput label="Strategy ID" onChange={(strategyId) => setForm((prev) => ({ ...prev, strategyId }))} value={form.strategyId} />
+          <TextInput label="策略 ID" onChange={(strategyId) => setForm((prev) => ({ ...prev, strategyId }))} value={form.strategyId} />
           <label className="flex items-center gap-2 rounded border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-200">
             <input
               checked={form.enabled}
               onChange={(event) => setForm((prev) => ({ ...prev, enabled: event.target.checked }))}
               type="checkbox"
             />
-            Enabled
+            启用
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs text-slate-500">Notes</span>
+            <span className="mb-1 block text-xs text-slate-500">备注</span>
             <textarea
               className="min-h-24 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400"
               onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
@@ -152,30 +152,30 @@ export function RiskRuleManager() {
             type="button"
           >
             <Save className="h-4 w-4" />
-            {editing ? "Save Changes" : "Create Rule"}
+            {editing ? "保存修改" : "创建规则"}
           </button>
         </div>
       </section>
 
       <section className="rounded border border-slate-800 bg-panel">
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-          <h2 className="text-base font-semibold text-white">Risk Rule List</h2>
-          <span className="text-xs text-slate-500">{loading ? "Loading" : `${rules.length} rules`}</span>
+          <h2 className="text-base font-semibold text-white">风险规则列表</h2>
+          <span className="text-xs text-slate-500">{loading ? "加载中" : `${rules.length} 条规则`}</span>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse text-left text-xs">
             <thead className="bg-slate-950 text-slate-400">
               <tr>
-                <Header>Name</Header>
-                <Header>Type</Header>
-                <Header>Action</Header>
-                <Header>Threshold</Header>
-                <Header>Symbol</Header>
-                <Header>Exchange</Header>
-                <Header>Enabled</Header>
-                <Header>Created</Header>
-                <Header>Updated</Header>
-                <Header>Actions</Header>
+                <Header>名称</Header>
+                <Header>类型</Header>
+                <Header>动作</Header>
+                <Header>阈值</Header>
+                <Header>币种</Header>
+                <Header>交易所</Header>
+                <Header>启用</Header>
+                <Header>创建时间</Header>
+                <Header>更新时间</Header>
+                <Header>操作</Header>
               </tr>
             </thead>
             <tbody>
@@ -191,7 +191,7 @@ export function RiskRuleManager() {
                   <Cell>{formatThreshold(rule)}</Cell>
                   <Cell>{rule.symbol ?? "-"}</Cell>
                   <Cell>{rule.exchange ?? "-"}</Cell>
-                  <Cell className={rule.enabled ? "text-emerald-300" : "text-slate-500"}>{rule.enabled ? "enabled" : "disabled"}</Cell>
+                  <Cell className={rule.enabled ? "text-emerald-300" : "text-slate-500"}>{rule.enabled ? "启用" : "禁用"}</Cell>
                   <Cell>{new Date(rule.createdAt).toLocaleString()}</Cell>
                   <Cell>{new Date(rule.updatedAt).toLocaleString()}</Cell>
                   <Cell>
@@ -199,7 +199,7 @@ export function RiskRuleManager() {
                       <button
                         className="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-700 text-slate-300 hover:border-cyan-400 hover:text-cyan-100"
                         onClick={() => void patchRule(rule, { enabled: !rule.enabled })}
-                        title={rule.enabled ? "Disable" : "Enable"}
+                        title={rule.enabled ? "禁用" : "启用"}
                         type="button"
                       >
                         {rule.enabled ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
@@ -313,7 +313,7 @@ function SelectInput({ label, onChange, options, value }: { label: string; onCha
       >
         {options.map((option) => (
           <option key={option} value={option}>
-            {option || "All"}
+            {option || "全部"}
           </option>
         ))}
       </select>

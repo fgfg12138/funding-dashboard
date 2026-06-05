@@ -15,7 +15,7 @@ type ApiEnvelope<T> = {
 const EXCHANGES: ExchangeName[] = ["Binance", "OKX", "Bybit"];
 const SIDES: Array<"all" | AdlSide> = ["all", "LONG", "SHORT"];
 const MIN_LEVELS = [
-  { label: "All", value: 0 },
+  { label: "全部", value: 0 },
   { label: ">= 3", value: 3 },
   { label: ">= 4", value: 4 },
   { label: ">= 5", value: 5 }
@@ -152,7 +152,7 @@ export function AdlMonitorClient() {
             title="生成模拟 ADL 仓位"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Mock Refresh
+            生成模拟数据
           </button>
         </div>
         <p className="mt-3 text-xs text-slate-400">{message}</p>
@@ -177,7 +177,7 @@ export function AdlMonitorClient() {
                   value={exchangeFilter}
                   onChange={(event) => setExchangeFilter(event.target.value as "all" | ExchangeName)}
                 >
-                  <option value="all">All</option>
+                  <option value="all">全部</option>
                   {EXCHANGES.map((exchange) => (
                     <option key={exchange} value={exchange}>
                       {exchange}
@@ -208,7 +208,7 @@ export function AdlMonitorClient() {
                 >
                   {SIDES.map((side) => (
                     <option key={side} value={side}>
-                      {side === "all" ? "All" : side}
+                      {side === "all" ? "全部" : side}
                     </option>
                   ))}
                 </select>
@@ -283,7 +283,7 @@ export function AdlMonitorClient() {
                 {filteredPositions.length === 0 ? (
                   <tr>
                     <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={10}>
-                      没有匹配的模拟 ADL 仓位。可以点击 Mock Refresh 生成演示数据。
+                      没有匹配的模拟 ADL 仓位。可以点击“生成模拟数据”生成演示数据。
                     </td>
                   </tr>
                 ) : null}

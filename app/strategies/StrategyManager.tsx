@@ -31,9 +31,9 @@ type StrategyFormState = {
 
 const EXCHANGES: ExchangeName[] = ["Binance", "OKX", "Bybit"];
 const STATUS_ACTIONS: Array<{ label: string; status: StrategyStatus; icon: typeof Play }> = [
-  { label: "Start", status: "running", icon: Play },
-  { label: "Pause", status: "paused", icon: Pause },
-  { label: "Stop", status: "stopped", icon: Square }
+  { label: "启动", status: "running", icon: Play },
+  { label: "暂停", status: "paused", icon: Pause },
+  { label: "停止", status: "stopped", icon: Square }
 ];
 
 const EMPTY_FORM: StrategyFormState = {
@@ -115,59 +115,59 @@ export function StrategyManager() {
     <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
       <section className="rounded border border-slate-800 bg-panel">
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-          <h2 className="text-base font-semibold text-white">{editing ? "Edit Strategy" : "Create Strategy"}</h2>
+          <h2 className="text-base font-semibold text-white">{editing ? "编辑策略" : "创建策略"}</h2>
           {editing && (
             <button className="text-xs text-cyan-300 hover:text-cyan-100" onClick={() => setForm(EMPTY_FORM)} type="button">
-              New
+              新建
             </button>
           )}
         </div>
         <div className="space-y-3 p-4">
           {error && <div className="rounded border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</div>}
-          <TextInput label="Strategy Name" onChange={(name) => setForm((prev) => ({ ...prev, name }))} value={form.name} />
+          <TextInput label="策略名称" onChange={(name) => setForm((prev) => ({ ...prev, name }))} value={form.name} />
           <div className="grid gap-3 sm:grid-cols-2">
             <SelectInput
-              label="Type"
+              label="类型"
               onChange={(strategyType) => setForm((prev) => ({ ...prev, strategyType: strategyType as StrategyType }))}
               options={["SpotPerp", "CrossExchange"]}
               value={form.strategyType}
             />
             <SelectInput
-              label="Status"
+              label="状态"
               onChange={(status) => setForm((prev) => ({ ...prev, status: status as StrategyStatus }))}
               options={["draft", "running", "paused", "stopped"]}
               value={form.status}
             />
           </div>
-          <TextInput label="Symbol" onChange={(symbol) => setForm((prev) => ({ ...prev, symbol }))} value={form.symbol} />
+          <TextInput label="币种" onChange={(symbol) => setForm((prev) => ({ ...prev, symbol }))} value={form.symbol} />
 
           {form.strategyType === "SpotPerp" ? (
             <div className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
-                <SelectInput label="Spot Exchange" onChange={(spotExchange) => setForm((prev) => ({ ...prev, spotExchange: spotExchange as ExchangeName }))} options={EXCHANGES} value={form.spotExchange} />
-                <SelectInput label="Perp Exchange" onChange={(perpExchange) => setForm((prev) => ({ ...prev, perpExchange: perpExchange as ExchangeName }))} options={EXCHANGES} value={form.perpExchange} />
+                <SelectInput label="现货交易所" onChange={(spotExchange) => setForm((prev) => ({ ...prev, spotExchange: spotExchange as ExchangeName }))} options={EXCHANGES} value={form.spotExchange} />
+                <SelectInput label="永续交易所" onChange={(perpExchange) => setForm((prev) => ({ ...prev, perpExchange: perpExchange as ExchangeName }))} options={EXCHANGES} value={form.perpExchange} />
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
-                <NumberInput label="Min Funding" onChange={(minFundingRate) => setForm((prev) => ({ ...prev, minFundingRate }))} step="0.0001" value={form.minFundingRate} />
-                <NumberInput label="Min Annualized" onChange={(minAnnualized) => setForm((prev) => ({ ...prev, minAnnualized }))} step="1" value={form.minAnnualized} />
-                <NumberInput label="Max Leverage" onChange={(maxLeverage) => setForm((prev) => ({ ...prev, maxLeverage }))} step="0.5" value={form.maxLeverage} />
+                <NumberInput label="最低 Funding" onChange={(minFundingRate) => setForm((prev) => ({ ...prev, minFundingRate }))} step="0.0001" value={form.minFundingRate} />
+                <NumberInput label="最低年化" onChange={(minAnnualized) => setForm((prev) => ({ ...prev, minAnnualized }))} step="1" value={form.minAnnualized} />
+                <NumberInput label="最大杠杆" onChange={(maxLeverage) => setForm((prev) => ({ ...prev, maxLeverage }))} step="0.5" value={form.maxLeverage} />
               </div>
             </div>
           ) : (
             <div className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
-                <SelectInput label="Long Exchange" onChange={(longExchange) => setForm((prev) => ({ ...prev, longExchange: longExchange as ExchangeName }))} options={EXCHANGES} value={form.longExchange} />
-                <SelectInput label="Short Exchange" onChange={(shortExchange) => setForm((prev) => ({ ...prev, shortExchange: shortExchange as ExchangeName }))} options={EXCHANGES} value={form.shortExchange} />
+                <SelectInput label="多头交易所" onChange={(longExchange) => setForm((prev) => ({ ...prev, longExchange: longExchange as ExchangeName }))} options={EXCHANGES} value={form.longExchange} />
+                <SelectInput label="空头交易所" onChange={(shortExchange) => setForm((prev) => ({ ...prev, shortExchange: shortExchange as ExchangeName }))} options={EXCHANGES} value={form.shortExchange} />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <NumberInput label="Min Funding Spread" onChange={(minFundingSpread) => setForm((prev) => ({ ...prev, minFundingSpread }))} step="0.0001" value={form.minFundingSpread} />
-                <NumberInput label="Min Annualized Spread" onChange={(minAnnualizedSpread) => setForm((prev) => ({ ...prev, minAnnualizedSpread }))} step="1" value={form.minAnnualizedSpread} />
+                <NumberInput label="最低 Funding 差" onChange={(minFundingSpread) => setForm((prev) => ({ ...prev, minFundingSpread }))} step="0.0001" value={form.minFundingSpread} />
+                <NumberInput label="最低年化价差" onChange={(minAnnualizedSpread) => setForm((prev) => ({ ...prev, minAnnualizedSpread }))} step="1" value={form.minAnnualizedSpread} />
               </div>
             </div>
           )}
 
           <label className="block">
-            <span className="mb-1 block text-xs text-slate-500">Notes</span>
+            <span className="mb-1 block text-xs text-slate-500">备注</span>
             <textarea
               className="min-h-24 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400"
               onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
@@ -181,28 +181,28 @@ export function StrategyManager() {
             type="button"
           >
             <Save className="h-4 w-4" />
-            {editing ? "Save Changes" : "Create Strategy"}
+            {editing ? "保存修改" : "创建策略"}
           </button>
         </div>
       </section>
 
       <section className="rounded border border-slate-800 bg-panel">
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-          <h2 className="text-base font-semibold text-white">Strategy List</h2>
-          <span className="text-xs text-slate-500">{loading ? "Loading" : `${strategies.length} strategies`}</span>
+          <h2 className="text-base font-semibold text-white">策略列表</h2>
+          <span className="text-xs text-slate-500">{loading ? "加载中" : `${strategies.length} 个策略`}</span>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse text-left text-xs">
             <thead className="bg-slate-950 text-slate-400">
               <tr>
-                <Header>Name</Header>
-                <Header>Type</Header>
-                <Header>Symbol</Header>
-                <Header>Exchange Pair</Header>
-                <Header>Status</Header>
-                <Header>Created</Header>
-                <Header>Updated</Header>
-                <Header>Actions</Header>
+                <Header>名称</Header>
+                <Header>类型</Header>
+                <Header>币种</Header>
+                <Header>交易所组合</Header>
+                <Header>状态</Header>
+                <Header>创建时间</Header>
+                <Header>更新时间</Header>
+                <Header>操作</Header>
               </tr>
             </thead>
             <tbody>

@@ -1,44 +1,18 @@
-import Link from "next/link";
+import { PageShell } from "@/components/PageShell";
 import { RiskRuleManager } from "./RiskRuleManager";
-import { TopNav } from "@/components/TopNav";
 
 export const dynamic = "force-dynamic";
 
 export default function RiskRulesPage() {
   return (
-    <main className="min-h-screen bg-surface px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1800px] space-y-5">
-        <header className="flex flex-col gap-3 border-b border-slate-800 pb-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-amber-300">Risk Rules Center</p>
-            <h1 className="mt-2 text-2xl font-semibold text-white">风险规则</h1>
-            <p className="mt-1 text-sm text-slate-400">只读 risk configuration. No exchange connection, no real strategy execution.</p>
-          </div>
-          <div className="flex flex-wrap gap-3 text-sm">
-            <Link className="text-cyan-300 hover:text-cyan-100" href="/strategies">
-              Strategies
-            </Link>
-            <Link className="text-cyan-300 hover:text-cyan-100" href="/dashboard">
-              Dashboard
-            </Link>
-            <Link className="text-cyan-300 hover:text-cyan-100" href="/notifications">
-              Notifications
-            </Link>
-            <Link className="text-cyan-300 hover:text-cyan-100" href="/adl-monitor">
-              ADL Monitor
-            </Link>
-            <Link className="text-cyan-300 hover:text-cyan-100" href="/basis">
-              Basis
-            </Link>
-            <Link className="text-cyan-300 hover:text-cyan-100" href="/opportunities">
-              Opportunities
-            </Link>
-          </div>
-        </header>
-        <TopNav activeHref="/risk-rules" />
-
-        <RiskRuleManager />
-      </div>
-    </main>
+    <PageShell
+      activeHref="/risk-rules"
+      description="只读风险规则配置中心，不连接交易所，不执行真实策略动作。"
+      eyebrow="风险规则中心"
+      refreshHref="/risk-rules"
+      title="风险规则"
+    >
+      <RiskRuleManager />
+    </PageShell>
   );
 }

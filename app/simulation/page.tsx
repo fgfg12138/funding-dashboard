@@ -1,6 +1,7 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { SimulationRunButton } from "./SimulationRunButton";
-import { TopNav } from "@/components/TopNav";
+import { PageShell } from "@/components/PageShell";
 import { getSimulationAccount, getSimulationHistory } from "@/lib/simulation/simService";
 import type { SimAccountSnapshot } from "@/lib/simulation/simAccount";
 
@@ -18,128 +19,99 @@ export default async function SimulationPage({
   const filteredHistory = filterHistory(history.slice().reverse(), params);
 
   return (
-    <main className="min-h-screen bg-surface px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1800px] space-y-5">
-        <header className="flex flex-col gap-3 border-b border-slate-800 pb-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-emerald-300">Paper Trading Simulation</p>
-            <h1 className="mt-2 text-2xl font-semibold text-white">Execution Simulation Engine</h1>
-            <p className="mt-1 text-sm text-slate-400">只读 simulation. 无 API Key, no real orders, no real positions.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/alpha">
-              Alpha
+    <PageShell
+      actions={<SimulationRunButton />}
+      activeHref="/simulation"
+      description="只读模拟回测展示页，不接 API Key，不动真实仓位，不执行真实下单。"
+      eyebrow="模拟回测"
+      refreshHref={buildSimulationHref(params)}
+      title="模拟回测"
+      updatedAt={account.timestamp}
+    >
+      <section className="flex flex-col gap-3 border border-slate-800 bg-slate-950/40 p-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="inline-flex w-fit border border-slate-700 bg-slate-950 p-1">
+          {WINDOW_OPTIONS.map((item) => (
+            <Link
+              className={`h-8 px-3 py-1.5 text-sm ${(params.window ?? "24h") === item ? "bg-emerald-400/20 text-emerald-100" : "text-slate-400 hover:text-slate-100"}`}
+              href={buildSimulationHref({ ...params, window: item })}
+              key={item}
+            >
+              {item}
             </Link>
-            <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/notifications">
-              Notifications
-            </Link>
-            <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/dashboard">
-              Dashboard
-            </Link>
-            <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/strategies">
-              Strategies
-            </Link>
-            <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/risk-rules">
-              Risk Rules
-            </Link>
-            <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/adl-monitor">
-              ADL Monitor
-            </Link>
-            <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/basis">
-              Basis
-            </Link>
-            <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/opportunities">
-              Opportunities
-            </Link>
-            <SimulationRunButton />
-          </div>
-        </header>
-        <TopNav activeHref="/simulation" />
+          ))}
+        </div>
+        <form action="/simulation" className="flex flex-wrap items-end gap-3">
+          <input name="window" type="hidden" value={params.window ?? "24h"} />
+          <label className="block">
+            <span className="mb-1 block text-xs text-slate-500">币种</span>
+            <input className="h-9 w-32 border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 outline-none focus:border-cyan-400" defaultValue={params.symbol ?? ""} name="symbol" placeholder="BTC" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs text-slate-500">交易所</span>
+            <input className="h-9 w-32 border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 outline-none focus:border-cyan-400" defaultValue={params.exchange ?? ""} name="exchange" placeholder="Bybit" />
+          </label>
+          <button className="h-9 border border-cyan-400/50 bg-cyan-400/10 px-3 text-sm text-cyan-100 hover:bg-cyan-400/20" type="submit">应用</button>
+        </form>
+        <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+          <span>{history.length} 条快照</span>
+          <span>{account.positions.length} 个持仓</span>
+        </div>
+      </section>
 
-        <section className="flex flex-col gap-3 border-y border-slate-800 bg-slate-950/40 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="inline-flex w-fit rounded border border-slate-700 bg-slate-950 p-1">
-            {WINDOW_OPTIONS.map((item) => (
-              <Link
-                className={`h-8 px-3 py-1.5 text-sm ${(params.window ?? "24h") === item ? "bg-emerald-400/20 text-emerald-100" : "text-slate-400 hover:text-slate-100"}`}
-                href={buildSimulationHref({ ...params, window: item })}
-                key={item}
-              >
-                {item}
-              </Link>
-            ))}
-          </div>
-          <form action="/simulation" className="flex flex-wrap items-end gap-3">
-            <input name="window" type="hidden" value={params.window ?? "24h"} />
-            <label className="block">
-              <span className="mb-1 block text-xs text-slate-500">Symbol</span>
-              <input
-                className="h-10 w-32 rounded border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
-                defaultValue={params.symbol ?? ""}
-                name="symbol"
-                placeholder="BTC"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs text-slate-500">Exchange</span>
-              <input
-                className="h-10 w-32 rounded border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 outline-none focus:border-cyan-400"
-                defaultValue={params.exchange ?? ""}
-                name="exchange"
-                placeholder="Bybit"
-              />
-            </label>
-            <button className="h-10 rounded border border-cyan-400/50 bg-cyan-400/10 px-3 text-sm text-cyan-100 hover:bg-cyan-400/20" type="submit">
-              Apply
-            </button>
-          </form>
-          <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-            <span>{history.length} snapshots</span>
-            <span>{account.positions.length} open positions</span>
-          </div>
-        </section>
+      <section className="grid gap-2 md:grid-cols-4">
+        <Stat label="当前余额" value={formatUsd(account.currentBalance)} tone="text-emerald-300" />
+        <Stat label="权益" value={formatUsd(account.equity)} tone="text-cyan-300" />
+        <Stat label="Funding 收益" value={formatUsd(account.fundingPnL)} tone={account.fundingPnL >= 0 ? "text-emerald-300" : "text-rose-300"} />
+        <Stat label="价格收益" value={formatUsd(account.pricePnL)} tone={account.pricePnL >= 0 ? "text-emerald-300" : "text-rose-300"} />
+      </section>
 
-        <section className="grid gap-3 md:grid-cols-4">
-          <Stat label="Current Balance" value={formatUsd(account.currentBalance)} tone="text-emerald-300" />
-          <Stat label="Equity" value={formatUsd(account.equity)} tone="text-cyan-300" />
-          <Stat label="Funding PnL" value={formatUsd(account.fundingPnL)} tone={account.fundingPnL >= 0 ? "text-emerald-300" : "text-rose-300"} />
-          <Stat label="Price PnL" value={formatUsd(account.pricePnL)} tone={account.pricePnL >= 0 ? "text-emerald-300" : "text-rose-300"} />
-        </section>
+      <section className="grid gap-3 xl:grid-cols-2">
+        <LineTable title="账户权益曲线" snapshots={filteredHistory} metric="equity" />
+        <LineTable title="Funding 收益曲线" snapshots={filteredHistory} metric="fundingPnL" />
+        <LineTable title="价格收益曲线" snapshots={filteredHistory} metric="pricePnL" />
+        <LineTable title="仓位价值曲线" snapshots={filteredHistory} metric="positionValue" />
+      </section>
 
-        <section className="grid gap-4 xl:grid-cols-2">
-          <LineChart title="Account Balance" snapshots={filteredHistory} metric="equity" />
-          <LineChart title="Funding PnL" snapshots={filteredHistory} metric="fundingPnL" />
-          <LineChart title="Price PnL" snapshots={filteredHistory} metric="pricePnL" />
-          <LineChart title="Open Position Value" snapshots={filteredHistory} metric="positionValue" />
-        </section>
-
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.8fr)]">
-          <PositionsTable snapshot={account} />
-          <TradeHistoryTable snapshot={account} />
-        </section>
-
-        <AlphaPnlTable snapshots={filteredHistory} />
-      </div>
-    </main>
+      <section className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.8fr)]">
+        <PositionsTable snapshot={account} />
+        <TradeHistoryTable snapshot={account} />
+      </section>
+    </PageShell>
   );
 }
 
-function LineChart({
-  title,
-  snapshots,
-  metric
-}: {
-  title: string;
-  snapshots: SimAccountSnapshot[];
-  metric: "equity" | "fundingPnL" | "pricePnL" | "positionValue";
-}) {
+function Stat({ label, tone, value }: { label: string; tone: string; value: string }) {
   return (
-    <section className="rounded border border-slate-800 bg-panel">
+    <div className="border border-slate-800 bg-panel p-4">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className={`mt-2 text-2xl font-semibold ${tone}`}>{value}</p>
+    </div>
+  );
+}
+
+function LineTable({ metric, snapshots, title }: { metric: keyof Pick<SimAccountSnapshot, "equity" | "fundingPnL" | "pricePnL" | "positionValue">; snapshots: SimAccountSnapshot[]; title: string }) {
+  const latest = snapshots.slice(-24);
+  return (
+    <section className="border border-slate-800 bg-panel">
       <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
         <h2 className="text-base font-semibold text-white">{title}</h2>
-        <span className="text-xs text-slate-500">{snapshots.length} points</span>
+        <span className="text-xs text-slate-500">{latest.length} 点</span>
       </div>
-      <div className="p-4">
-        {snapshots.length > 0 ? <Sparkline values={snapshots.map((snapshot) => snapshot[metric])} /> : <p className="py-12 text-center text-sm text-slate-500">Run simulation to collect snapshots.</p>}
+      <div className="max-h-[280px] overflow-auto">
+        <table className="min-w-full text-xs">
+          <thead className="sticky top-0 bg-slate-950 text-slate-400">
+            <tr><Header>时间</Header><Header align="right">数值</Header></tr>
+          </thead>
+          <tbody>
+            {latest.map((snapshot) => (
+              <tr className="border-b border-slate-800/70" key={`${metric}:${snapshot.timestamp}`}>
+                <Cell>{new Date(snapshot.timestamp).toLocaleString()}</Cell>
+                <Cell align="right">{formatUsd(Number(snapshot[metric]))}</Cell>
+              </tr>
+            ))}
+            {latest.length === 0 ? <EmptyRow colSpan={2} label="暂无模拟历史。" /> : null}
+          </tbody>
+        </table>
       </div>
     </section>
   );
@@ -147,214 +119,128 @@ function LineChart({
 
 function PositionsTable({ snapshot }: { snapshot: SimAccountSnapshot }) {
   return (
-    <section className="rounded border border-slate-800 bg-panel">
-      <TableTitle title="Open Positions" value={`${snapshot.positions.length} positions`} />
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse text-left text-xs">
-          <thead className="bg-slate-950 text-slate-400">
-            <tr>
-              <Header>Symbol</Header>
-              <Header>Exchange</Header>
-              <Header>Type</Header>
-              <Header>Qty</Header>
-              <Header>Entry</Header>
-              <Header>Alpha发现</Header>
+    <TableCard title="当前模拟仓位" value={`${snapshot.positions.length} 个`}>
+      <table className="min-w-[820px] text-xs">
+        <thead className="sticky top-0 bg-slate-950 text-slate-400">
+          <tr>
+            <Header>币种</Header>
+            <Header>交易所</Header>
+            <Header>类型</Header>
+            <Header align="right">数量</Header>
+            <Header align="right">入场价</Header>
+            <Header align="right">Alpha评分</Header>
+            <Header>入场时间</Header>
+          </tr>
+        </thead>
+        <tbody>
+          {snapshot.positions.map((position) => (
+            <tr className="border-b border-slate-800/70" key={`${position.symbol}:${position.exchange}:${position.entryTime}`}>
+              <Cell>{position.symbol}</Cell>
+              <Cell>{position.exchange}</Cell>
+              <Cell>{position.type}</Cell>
+              <Cell align="right">{position.quantity.toFixed(4)}</Cell>
+              <Cell align="right">{formatNumber(position.entryPrice)}</Cell>
+              <Cell align="right">{position.alphaScore}</Cell>
+              <Cell>{new Date(position.entryTime).toLocaleString()}</Cell>
             </tr>
-          </thead>
-          <tbody>
-            {snapshot.positions.map((position) => (
-              <tr className="border-b border-slate-800/70 hover:bg-slate-800/40" key={`${position.exchange}:${position.symbol}:${position.type}`}>
-                <Cell strong>{position.symbol}</Cell>
-                <Cell>{position.exchange}</Cell>
-                <Cell>{position.type}</Cell>
-                <Cell>{position.quantity.toFixed(4)}</Cell>
-                <Cell>{formatUsd(position.entryPrice)}</Cell>
-                <Cell>{position.alphaScore}</Cell>
-              </tr>
-            ))}
-            {snapshot.positions.length === 0 && <EmptyRow colSpan={6} label="No simulated open positions." />}
-          </tbody>
-        </table>
-      </div>
-    </section>
+          ))}
+          {snapshot.positions.length === 0 ? <EmptyRow colSpan={7} label="暂无模拟仓位。" /> : null}
+        </tbody>
+      </table>
+    </TableCard>
   );
 }
 
 function TradeHistoryTable({ snapshot }: { snapshot: SimAccountSnapshot }) {
-  const trades = snapshot.tradeHistory.slice().reverse().slice(0, 20);
   return (
-    <section className="rounded border border-slate-800 bg-panel">
-      <TableTitle title="Trade History" value={`${snapshot.tradeHistory.length} closed trades`} />
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse text-left text-xs">
-          <thead className="bg-slate-950 text-slate-400">
-            <tr>
-              <Header>Symbol</Header>
-              <Header>Exchange</Header>
-              <Header>Total PnL</Header>
-              <Header>Funding</Header>
-              <Header>Price</Header>
+    <TableCard title="模拟交易历史" value={`${snapshot.tradeHistory.length} 笔`}>
+      <table className="min-w-[720px] text-xs">
+        <thead className="sticky top-0 bg-slate-950 text-slate-400">
+          <tr>
+            <Header>币种</Header>
+            <Header>交易所</Header>
+            <Header align="right">总收益</Header>
+            <Header align="right">Funding收益</Header>
+            <Header align="right">价格收益</Header>
+            <Header>退出时间</Header>
+          </tr>
+        </thead>
+        <tbody>
+          {snapshot.tradeHistory.slice(-80).map((trade) => (
+            <tr className="border-b border-slate-800/70" key={`${trade.symbol}:${trade.exchange}:${trade.exitTime}`}>
+              <Cell>{trade.symbol}</Cell>
+              <Cell>{trade.exchange}</Cell>
+              <Cell align="right">{formatUsd(trade.pnl)}</Cell>
+              <Cell align="right">{formatUsd(trade.fundingPnL)}</Cell>
+              <Cell align="right">{formatUsd(trade.pricePnL)}</Cell>
+              <Cell>{new Date(trade.exitTime).toLocaleString()}</Cell>
             </tr>
-          </thead>
-          <tbody>
-            {trades.map((trade) => (
-              <tr className="border-b border-slate-800/70 hover:bg-slate-800/40" key={`${trade.exitTime}:${trade.exchange}:${trade.symbol}`}>
-                <Cell strong>{trade.symbol}</Cell>
-                <Cell>{trade.exchange}</Cell>
-                <Cell className={trade.pnl >= 0 ? "text-emerald-300" : "text-rose-300"}>{formatUsd(trade.pnl)}</Cell>
-                <Cell>{formatUsd(trade.fundingPnL)}</Cell>
-                <Cell>{formatUsd(trade.pricePnL)}</Cell>
-              </tr>
-            ))}
-            {trades.length === 0 && <EmptyRow colSpan={5} label="No closed simulated trades yet." />}
-          </tbody>
-        </table>
+          ))}
+          {snapshot.tradeHistory.length === 0 ? <EmptyRow colSpan={6} label="暂无模拟交易历史。" /> : null}
+        </tbody>
+      </table>
+    </TableCard>
+  );
+}
+
+function TableCard({ children, title, value }: { children: ReactNode; title: string; value: string }) {
+  return (
+    <section className="border border-slate-800 bg-panel">
+      <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+        <h2 className="text-base font-semibold text-white">{title}</h2>
+        <span className="text-xs text-slate-500">{value}</span>
       </div>
+      <div className="max-h-[520px] overflow-auto">{children}</div>
     </section>
   );
 }
 
-function AlphaPnlTable({ snapshots }: { snapshots: SimAccountSnapshot[] }) {
-  const rows = snapshots.flatMap((snapshot) =>
-    snapshot.positions.map((position) => ({
-      timestamp: snapshot.timestamp,
-      symbol: position.symbol,
-      alphaScore: position.alphaScore,
-      totalPnL: snapshot.totalPnL,
-      fundingPnL: snapshot.fundingPnL,
-      pricePnL: snapshot.pricePnL
-    }))
-  );
-
-  return (
-    <section className="rounded border border-slate-800 bg-panel">
-      <TableTitle title="Alpha Score vs Simulated PnL" value={`${rows.length} rows`} />
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse text-left text-xs">
-          <thead className="bg-slate-950 text-slate-400">
-            <tr>
-              <Header>Time</Header>
-              <Header>Symbol</Header>
-              <Header>Alpha Score</Header>
-              <Header>Total PnL</Header>
-              <Header>Funding PnL</Header>
-              <Header>Price PnL</Header>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.slice(-50).map((row) => (
-              <tr className="border-b border-slate-800/70 hover:bg-slate-800/40" key={`${row.timestamp}:${row.symbol}`}>
-                <Cell>{new Date(row.timestamp).toLocaleString()}</Cell>
-                <Cell strong>{row.symbol}</Cell>
-                <Cell>{row.alphaScore}</Cell>
-                <Cell>{formatUsd(row.totalPnL)}</Cell>
-                <Cell>{formatUsd(row.fundingPnL)}</Cell>
-                <Cell>{formatUsd(row.pricePnL)}</Cell>
-              </tr>
-            ))}
-            {rows.length === 0 && <EmptyRow colSpan={6} label="No Alpha/PnL comparison rows yet." />}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
+function Header({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {
+  return <th className={`whitespace-nowrap px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`}>{children}</th>;
 }
 
-function Sparkline({ values }: { values: number[] }) {
-  const width = 520;
-  const height = 160;
-  const padding = 18;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const yRange = Math.max(max - min, 1);
-  const xRange = Math.max(values.length - 1, 1);
-  const path = values
-    .map((value, index) => {
-      const x = padding + (index / xRange) * (width - padding * 2);
-      const y = height - padding - ((value - min) / yRange) * (height - padding * 2);
-      return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
-    .join(" ");
-
-  return (
-    <svg className="h-40 w-full" preserveAspectRatio="none" viewBox={`0 0 ${width} ${height}`} role="img">
-      <line stroke="#334155" x1={padding} x2={width - padding} y1={height - padding} y2={height - padding} />
-      <path d={path} fill="none" stroke="#34d399" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
-    </svg>
-  );
-}
-
-function Stat({ label, value, tone }: { label: string; value: React.ReactNode; tone: string }) {
-  return (
-    <div className="rounded border border-slate-800 bg-panel px-4 py-3">
-      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <p className={`mt-2 text-xl font-semibold ${tone}`}>{value}</p>
-    </div>
-  );
-}
-
-function TableTitle({ title, value }: { title: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-      <h2 className="text-base font-semibold text-white">{title}</h2>
-      <span className="text-xs text-slate-500">{value}</span>
-    </div>
-  );
-}
-
-function Header({ children }: { children: React.ReactNode }) {
-  return <th className="whitespace-nowrap border-b border-slate-800 px-3 py-2 font-medium">{children}</th>;
-}
-
-function Cell({
-  children,
-  className = "",
-  strong = false
-}: {
-  children: React.ReactNode;
-  className?: string;
-  strong?: boolean;
-}) {
-  return <td className={`whitespace-nowrap px-3 py-2 ${strong ? "font-medium text-white" : "text-slate-200"} ${className}`}>{children}</td>;
+function Cell({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {
+  return <td className={`px-3 py-2 align-top tabular-nums ${align === "right" ? "text-right" : "text-left"}`}>{children}</td>;
 }
 
 function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
   return (
     <tr>
-      <td className="px-3 py-8 text-center text-slate-500" colSpan={colSpan}>
-        {label}
-      </td>
+      <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={colSpan}>{label}</td>
     </tr>
   );
 }
 
-function filterHistory(snapshots: SimAccountSnapshot[], params: { symbol?: string; exchange?: string }) {
+function filterHistory(rows: SimAccountSnapshot[], params: { exchange?: string; symbol?: string; window?: string }) {
+  const since = Date.now() - parseWindowMs(params.window);
   const symbol = params.symbol?.trim().toUpperCase();
-  const exchange = params.exchange?.trim().toLowerCase();
-  if (!symbol && !exchange) return snapshots;
+  const exchange = params.exchange?.trim().toUpperCase();
+  return rows
+    .filter((row) => row.timestamp >= since)
+    .filter((row) => (symbol ? row.positions.some((position) => position.symbol.toUpperCase().includes(symbol)) || row.tradeHistory.some((trade) => trade.symbol.toUpperCase().includes(symbol)) : true))
+    .filter((row) => (exchange ? row.positions.some((position) => position.exchange.toUpperCase().includes(exchange)) || row.tradeHistory.some((trade) => trade.exchange.toUpperCase().includes(exchange)) : true));
+}
 
-  return snapshots.filter((snapshot) =>
-    snapshot.positions.some((position) => {
-      const symbolMatches = symbol ? position.symbol.includes(symbol) || position.symbol.startsWith(`${symbol}/`) : true;
-      const exchangeMatches = exchange ? position.exchange.toLowerCase() === exchange : true;
-      return symbolMatches && exchangeMatches;
-    })
-  );
+function parseWindowMs(value?: string) {
+  if (value === "1h") return 60 * 60_000;
+  if (value === "7d") return 7 * 24 * 60 * 60_000;
+  if (value === "30d") return 30 * 24 * 60 * 60_000;
+  return 24 * 60 * 60_000;
 }
 
 function buildSimulationHref(params: Record<string, string | undefined>) {
-  const searchParams = new URLSearchParams();
-  if (params.window) searchParams.set("window", params.window);
-  if (params.symbol) searchParams.set("symbol", params.symbol);
-  if (params.exchange) searchParams.set("exchange", params.exchange);
-  const query = searchParams.toString();
-  return query ? `/simulation?${query}` : "/simulation";
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) query.set(key, value);
+  }
+  const text = query.toString();
+  return text ? `/simulation?${text}` : "/simulation";
 }
 
 function formatUsd(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    currency: "USD",
-    maximumFractionDigits: 2,
-    style: "currency"
-  }).format(value);
+  return Intl.NumberFormat("en-US", { currency: "USD", maximumFractionDigits: 2, style: "currency" }).format(value);
+}
+
+function formatNumber(value: number) {
+  return value >= 100 ? value.toFixed(2) : value.toPrecision(6);
 }

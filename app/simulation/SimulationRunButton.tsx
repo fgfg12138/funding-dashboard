@@ -30,7 +30,7 @@ export function SimulationRunButton() {
       type="button"
     >
       <Play className="h-4 w-4" />
-      Run Simulation
+      运行模拟
     </button>
   );
 }

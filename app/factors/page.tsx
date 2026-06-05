@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { TopNav } from "@/components/TopNav";
+import type { ReactNode } from "react";
+import { PageShell } from "@/components/PageShell";
 import { queryAllFundingHistory, queryAllOpportunityHistory } from "@/lib/data/historyStore";
 import {
   buildFundingFactorResearch,
@@ -33,81 +34,73 @@ export default async function FactorsPage({
   const allBuckets = Object.values(research.bucketsByFactor).flat();
 
   return (
-    <main className="min-h-screen bg-surface px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1800px] space-y-5">
-        <header className="flex flex-col gap-3 border-b border-slate-800 pb-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Funding Factor Research</p>
-            <h1 className="mt-2 text-2xl font-semibold text-white">Funding Factor Research</h1>
-            <p className="mt-1 text-sm text-slate-400">只读 quartile analysis. 不交易, no model fitting, 无 API Key.</p>
-          </div>
-          <Link className="text-sm text-cyan-300 hover:text-cyan-100" href="/dashboard">
-            Back to dashboard
-          </Link>
-        </header>
-        <TopNav activeHref="/factors" />
+    <PageShell
+      activeHref="/factors"
+      description="只读四分位因子统计，用历史 Funding 与机会快照观察存活、衰减和质量分。"
+      eyebrow="Funding 因子研究"
+      refreshHref={`/factors?window=${params.window ?? "24h"}`}
+      title="因子研究"
+      updatedAt={research.generatedAt}
+    >
+      <section className="flex flex-col gap-3 border border-slate-800 bg-slate-950/40 p-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="inline-flex w-fit border border-slate-700 bg-slate-950 p-1">
+          {WINDOW_OPTIONS.map((item) => (
+            <Link
+              className={`h-8 px-3 py-1.5 text-sm ${windowHours === item.hours ? "bg-cyan-400/20 text-cyan-100" : "text-slate-400 hover:text-slate-100"}`}
+              href={`/factors?window=${item.label}`}
+              key={item.label}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+          <span>{research.samples.length} 个因子样本</span>
+          <span>{opportunityRows.length} 条机会快照</span>
+          <span>{fundingRows.length} 条 Funding 快照</span>
+        </div>
+      </section>
 
-        <section className="flex flex-col gap-3 border-y border-slate-800 bg-slate-950/40 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="inline-flex w-fit rounded border border-slate-700 bg-slate-950 p-1">
-            {WINDOW_OPTIONS.map((item) => (
-              <Link
-                className={`h-8 px-3 py-1.5 text-sm ${windowHours === item.hours ? "bg-cyan-400/20 text-cyan-100" : "text-slate-400 hover:text-slate-100"}`}
-                href={`/factors?window=${item.label}`}
-                key={item.label}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-            <span>{research.samples.length} factor samples</span>
-            <span>{opportunityRows.length} opportunity snapshots</span>
-            <span>{fundingRows.length} funding snapshots</span>
-            <span>更新时间 {new Date(research.generatedAt).toLocaleTimeString()}</span>
-          </div>
-        </section>
+      <FactorSummaryTable research={research} />
 
-        <FactorSummaryTable research={research} />
-
-        <section className="grid gap-4 xl:grid-cols-3">
-          <BucketTable buckets={allBuckets} metric="avgSurvivalHours" title="Survival by Factor Bucket" />
-          <BucketTable buckets={allBuckets} metric="avgAnnualizedDecay" title="Decay by Factor Bucket" />
-          <BucketTable buckets={allBuckets} metric="avgQualityScore" title="Quality by Factor Bucket" />
-        </section>
-      </div>
-    </main>
+      <section className="grid gap-3 xl:grid-cols-3">
+        <BucketTable buckets={allBuckets} metric="avgSurvivalHours" title="按因子分桶看存活时间" />
+        <BucketTable buckets={allBuckets} metric="avgAnnualizedDecay" title="按因子分桶看年化衰减" />
+        <BucketTable buckets={allBuckets} metric="avgQualityScore" title="按因子分桶看质量分" />
+      </section>
+    </PageShell>
   );
 }
 
 function FactorSummaryTable({ research }: { research: FundingFactorResearchResult }) {
   return (
-    <section className="rounded border border-slate-800 bg-panel">
+    <section className="border border-slate-800 bg-panel">
       <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-        <h2 className="text-base font-semibold text-white">Factor Summary Table</h2>
-        <span className="text-xs text-slate-500">{research.factorSummaries.length} factors</span>
+        <h2 className="text-base font-semibold text-white">因子汇总表</h2>
+        <span className="text-xs text-slate-500">{research.factorSummaries.length} 个因子</span>
       </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse text-left text-xs">
-          <thead className="bg-slate-950 text-slate-400">
+      <div className="max-h-[520px] overflow-auto">
+        <table className="min-w-[980px] border-collapse text-left text-xs">
+          <thead className="sticky top-0 z-10 bg-slate-950 text-slate-400">
             <tr>
-              <Header>Factor</Header>
-              <Header>Samples</Header>
-              <Header>Min</Header>
-              <Header>Avg</Header>
-              <Header>Max</Header>
-              <Header>Best survival</Header>
-              <Header>Lowest decay</Header>
-              <Header>Best quality</Header>
+              <Header>因子</Header>
+              <Header align="right">样本数</Header>
+              <Header align="right">最小值</Header>
+              <Header align="right">平均值</Header>
+              <Header align="right">最大值</Header>
+              <Header>最佳存活桶</Header>
+              <Header>最低衰减桶</Header>
+              <Header>最佳质量桶</Header>
             </tr>
           </thead>
           <tbody>
             {research.factorSummaries.map((row) => (
               <tr className="border-b border-slate-800/70 hover:bg-slate-800/40" key={row.factor}>
                 <Cell>{row.factor}</Cell>
-                <Cell>{row.sampleCount}</Cell>
-                <Cell>{formatNumber(row.minValue)}</Cell>
-                <Cell>{formatNumber(row.avgValue)}</Cell>
-                <Cell>{formatNumber(row.maxValue)}</Cell>
+                <Cell align="right">{row.sampleCount}</Cell>
+                <Cell align="right">{formatNumber(row.minValue)}</Cell>
+                <Cell align="right">{formatNumber(row.avgValue)}</Cell>
+                <Cell align="right">{formatNumber(row.maxValue)}</Cell>
                 <Cell>{row.bestSurvivalBucket ?? "-"}</Cell>
                 <Cell>{row.lowestDecayBucket ?? "-"}</Cell>
                 <Cell>{row.bestQualityBucket ?? "-"}</Cell>
@@ -130,20 +123,20 @@ function BucketTable({
   title: string;
 }) {
   return (
-    <section className="rounded border border-slate-800 bg-panel">
+    <section className="border border-slate-800 bg-panel">
       <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
         <h2 className="text-base font-semibold text-white">{title}</h2>
-        <span className="text-xs text-slate-500">{buckets.length} buckets</span>
+        <span className="text-xs text-slate-500">{buckets.length} 个分桶</span>
       </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse text-left text-xs">
-          <thead className="bg-slate-950 text-slate-400">
+      <div className="max-h-[520px] overflow-auto">
+        <table className="min-w-[620px] border-collapse text-left text-xs">
+          <thead className="sticky top-0 z-10 bg-slate-950 text-slate-400">
             <tr>
-              <Header>Factor</Header>
-              <Header>Bucket</Header>
-              <Header>Range</Header>
-              <Header>Samples</Header>
-              <Header>Value</Header>
+              <Header>因子</Header>
+              <Header>分桶</Header>
+              <Header>范围</Header>
+              <Header align="right">样本数</Header>
+              <Header align="right">指标值</Header>
             </tr>
           </thead>
           <tbody>
@@ -152,17 +145,15 @@ function BucketTable({
                 <Cell>{row.factor}</Cell>
                 <Cell>{row.bucket}</Cell>
                 <Cell>{formatNumber(row.minValue)} - {formatNumber(row.maxValue)}</Cell>
-                <Cell>{row.sampleCount}</Cell>
-                <Cell>{formatMetric(row[metric], metric)}</Cell>
+                <Cell align="right">{row.sampleCount}</Cell>
+                <Cell align="right">{formatMetric(row[metric], metric)}</Cell>
               </tr>
             ))}
-            {buckets.length === 0 && (
+            {buckets.length === 0 ? (
               <tr>
-                <td className="px-3 py-8 text-center text-slate-500" colSpan={5}>
-                  暂无因子分桶，请等待看板收集更多历史数据。
-                </td>
+                <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={5}>暂无历史样本。</td>
               </tr>
-            )}
+            ) : null}
           </tbody>
         </table>
       </div>
@@ -170,29 +161,25 @@ function BucketTable({
   );
 }
 
-function Header({ children }: { children: React.ReactNode }) {
-  return <th className="whitespace-nowrap border-b border-slate-800 px-3 py-2 font-medium">{children}</th>;
+function Header({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {
+  return <th className={`whitespace-nowrap px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`}>{children}</th>;
 }
 
-function Cell({ children }: { children: React.ReactNode }) {
-  return <td className="whitespace-nowrap px-3 py-2 text-slate-200">{children}</td>;
-}
-
-function formatNumber(value: number) {
-  if (!Number.isFinite(value)) return "-";
-  if (Math.abs(value) >= 1_000_000) return value.toExponential(2);
-  return value.toFixed(2);
-}
-
-function formatMetric(value: number, metric: "avgSurvivalHours" | "avgAnnualizedDecay" | "avgQualityScore") {
-  if (metric === "avgSurvivalHours") return `${value.toFixed(2)}h`;
-  if (metric === "avgAnnualizedDecay") return `${value.toFixed(2)}%`;
-  return value.toFixed(0);
+function Cell({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {
+  return <td className={`px-3 py-2 align-top tabular-nums ${align === "right" ? "text-right" : "text-left"}`}>{children}</td>;
 }
 
 function parseWindowHours(value?: string): number {
-  if (value === "1" || value === "1h") return 1;
-  if (value === "7d" || value === "168") return 168;
-  if (value === "30d" || value === "720") return 720;
-  return 24;
+  return WINDOW_OPTIONS.find((item) => item.label === value)?.hours ?? 24;
+}
+
+function formatMetric(value: number, metric: "avgSurvivalHours" | "avgAnnualizedDecay" | "avgQualityScore") {
+  if (metric === "avgAnnualizedDecay") return `${formatNumber(value)}%`;
+  if (metric === "avgSurvivalHours") return `${formatNumber(value)}h`;
+  return formatNumber(value);
+}
+
+function formatNumber(value?: number): string {
+  if (value === undefined || Number.isNaN(value)) return "-";
+  return value.toFixed(2);
 }

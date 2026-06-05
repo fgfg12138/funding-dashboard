@@ -117,7 +117,7 @@ export function FilterPanel({ children, footer }: { children: ReactNode; footer?
 }
 
 export function DataTableShell({ children }: { children: ReactNode }) {
-  return <section className="max-h-[68vh] overflow-auto border border-slate-800 bg-slate-950/30">{children}</section>;
+  return <section className="max-h-[520px] overflow-auto border border-slate-800 bg-slate-950/30">{children}</section>;
 }
 
 export function ScoreBadge({ score }: { score: number }) {

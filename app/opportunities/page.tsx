@@ -1,18 +1,16 @@
 "use client";
 
-import { RefreshCw, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PageShell } from "@/components/PageShell";
 import {
-  AppShell,
   DataTableShell,
   ExchangeBadge,
   FilterPanel,
-  ReadOnlyPill,
   RiskBadge,
   ScoreBadge,
-  StatCard,
-  TypeBadge
+  StatCard
 } from "@/components/ui/dashboard";
 import type { ExchangeName } from "@/lib/exchanges/types";
 import type { UnifiedOpportunity, UnifiedOpportunityFilters, UnifiedOpportunitySortBy, UnifiedOpportunityType } from "@/lib/opportunities/types";
@@ -42,7 +40,7 @@ const EXCHANGES: Array<"all" | ExchangeName> = ["all", "Binance", "OKX", "Bybit"
 const QUICK_MODES: Array<{ label: string; value: QuickMode }> = [
   { label: "全部", value: "all" },
   { label: "跨所费率差", value: "CrossExchange" },
-  { label: "Spot/Perp", value: "SpotPerp" },
+  { label: "现货/永续", value: "SpotPerp" },
   { label: "Basis", value: "Basis" },
   { label: "推荐", value: "recommended" },
   { label: "高风险", value: "highRisk" }
@@ -107,44 +105,18 @@ export default function OpportunitiesPage() {
   const filteredRows = useMemo(() => {
     const baseRows = filterUnifiedOpportunities(rows, filters);
     return quickMode === "highRisk" ? baseRows.filter(isHighRiskUnifiedOpportunity) : baseRows;
-  }, [
-    exchange,
-    hideHighRisk,
-    minAnnualized,
-    minScore,
-    minVolume24h,
-    opportunityType,
-    quickMode,
-    recommendedOnly,
-    rows,
-    search,
-    sortBy
-  ]);
+  }, [exchange, hideHighRisk, minAnnualized, minScore, minVolume24h, opportunityType, quickMode, recommendedOnly, rows, search, sortBy]);
   const stats = useMemo(() => buildStats(rows), [rows]);
 
   return (
-    <AppShell
+    <PageShell
       activeHref="/opportunities"
-      actions={
-        <>
-          <div className="border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-slate-400">
-            更新时间 <span className="text-slate-100">{formatTime(updatedAt)}</span>
-          </div>
-          <button
-            className="inline-flex h-9 items-center justify-center gap-2 border border-cyan-400/50 bg-cyan-400/10 px-3 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-wait disabled:opacity-60"
-            disabled={loading}
-            onClick={() => void loadData()}
-            title="刷新公开行情"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            刷新
-          </button>
-          <ReadOnlyPill />
-        </>
-      }
+      description="只读多交易所 Funding 与 Basis 机会看板，只展示公开行情和计算结果。"
       eyebrow="V1 主看板"
-      subtitle="只读多交易所 Funding 与 Basis 机会看板"
-      title="Funding Arbitrage OS"
+      loading={loading}
+      onRefresh={() => void loadData()}
+      title="机会总览"
+      updatedAt={updatedAt}
     >
       <section className="grid gap-2 md:grid-cols-3 xl:grid-cols-7">
         <StatCard label="总机会数" value={stats.total.toLocaleString()} />
@@ -200,14 +172,14 @@ export default function OpportunitiesPage() {
         <SelectFilter label="类型" value={opportunityType} onChange={(value) => setOpportunityType(value as "all" | UnifiedOpportunityType)}>
           {TYPES.map((item) => (
             <option key={item} value={item}>
-              {item}
+              {formatType(item)}
             </option>
           ))}
         </SelectFilter>
         <SelectFilter label="交易所" value={exchange} onChange={(value) => setExchange(value as "all" | ExchangeName)}>
           {EXCHANGES.map((item) => (
             <option key={item} value={item}>
-              {item}
+              {item === "all" ? "全部" : item}
             </option>
           ))}
         </SelectFilter>
@@ -280,7 +252,7 @@ export default function OpportunitiesPage() {
                   </div>
                 </Td>
                 <Td>
-                  <span className="line-clamp-2 max-w-[240px] text-slate-300">{row.direction}</span>
+                  <span className="line-clamp-2 max-w-[240px] text-slate-300" title={row.direction}>{row.direction}</span>
                 </Td>
                 <Td>
                   <ExchangePair row={row} />
@@ -312,7 +284,7 @@ export default function OpportunitiesPage() {
           </tbody>
         </table>
       </DataTableShell>
-    </AppShell>
+    </PageShell>
   );
 }
 
@@ -353,12 +325,32 @@ function NumberFilter({ label, onChange, step, value }: { label: string; onChang
   );
 }
 
+function Th({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {
+  return <th className={`whitespace-nowrap px-4 py-3 ${align === "right" ? "text-right" : "text-left"}`}>{children}</th>;
+}
+
+function Td({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {
+  return <td className={`px-4 py-3 align-top tabular-nums ${align === "right" ? "text-right" : "text-left"}`}>{children}</td>;
+}
+
+function TypeBadge({ label }: { label: UnifiedOpportunityType }) {
+  const tone = {
+    CrossExchange: "border-purple-400/50 bg-purple-400/10 text-purple-200",
+    SpotPerp: "border-cyan-400/50 bg-cyan-400/10 text-cyan-200",
+    Basis: "border-emerald-400/50 bg-emerald-400/10 text-emerald-200"
+  }[label];
+
+  return <span className={`border px-2 py-0.5 text-xs ${tone}`}>{formatType(label)}</span>;
+}
+
 function RiskTags({ tags }: { tags: string[] }) {
-  if (tags.length === 0) return <span className="text-slate-500">-</span>;
+  if (tags.length === 0) {
+    return <span className="text-slate-500">-</span>;
+  }
 
   return (
-    <div className="flex max-w-[260px] flex-wrap gap-1">
-      {tags.map((tag) => (
+    <div className="flex max-w-[220px] flex-wrap gap-1">
+      {tags.slice(0, 3).map((tag) => (
         <RiskBadge key={tag} label={tag} />
       ))}
     </div>
@@ -367,34 +359,33 @@ function RiskTags({ tags }: { tags: string[] }) {
 
 function ExchangePair({ row }: { row: UnifiedOpportunity }) {
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex max-w-[220px] flex-wrap gap-1">
       <ExchangeBadge label={row.primaryExchange} />
       {row.secondaryExchange ? <ExchangeBadge label={row.secondaryExchange} /> : null}
     </div>
   );
 }
 
-function Th({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {
-  return <th className={`whitespace-nowrap px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`}>{children}</th>;
-}
-
-function Td({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {
-  return <td className={`whitespace-nowrap px-3 py-2 align-top ${align === "right" ? "text-right tabular-nums" : "text-left"}`}>{children}</td>;
-}
-
-function formatSpreadBasis(row: UnifiedOpportunity) {
-  if (row.basisPercent !== undefined) return `Basis ${formatPercent(row.basisPercent)}%`;
-  if (row.spreadPercent !== undefined) return `Spread ${formatPercent(row.spreadPercent)}%`;
-  return "-";
+function formatType(value: "all" | UnifiedOpportunityType) {
+  if (value === "all") return "全部";
+  if (value === "CrossExchange") return "跨所费率差";
+  if (value === "SpotPerp") return "现货/永续";
+  return "Basis";
 }
 
 function formatPercent(value: number) {
-  return value.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+  return value.toFixed(2);
 }
 
-function formatCompactUsd(value: number | undefined) {
-  if (!value) return "-";
-  return Intl.NumberFormat(undefined, { currency: "USD", maximumFractionDigits: 1, notation: "compact", style: "currency" }).format(value);
+function formatSpreadBasis(row: UnifiedOpportunity) {
+  if (row.basisPercent !== undefined) return `${formatPercent(row.basisPercent)}%`;
+  if (row.spreadPercent !== undefined) return `${formatPercent(row.spreadPercent)}%`;
+  return "-";
+}
+
+function formatCompactUsd(value?: number) {
+  if (value === undefined || Number.isNaN(value)) return "-";
+  return Intl.NumberFormat("en-US", { currency: "USD", maximumFractionDigits: 1, notation: "compact", style: "currency" }).format(value);
 }
 
 function formatTime(value: number | null) {
