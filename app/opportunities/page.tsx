@@ -12,6 +12,7 @@ import {
   ScoreBadge,
   StatCard
 } from "@/components/ui/dashboard";
+import { formatExchangeCoverage, getExchangeCoverageTitle } from "@/lib/exchanges/exchangeCoverage";
 import type { ExchangeName } from "@/lib/exchanges/types";
 import type { UnifiedOpportunity, UnifiedOpportunityFilters, UnifiedOpportunitySortBy, UnifiedOpportunityType } from "@/lib/opportunities/types";
 import { filterUnifiedOpportunities, isHighRiskUnifiedOpportunity, isRecommendedUnifiedOpportunity } from "@/lib/opportunities/unifiedOpportunities";
@@ -49,13 +50,14 @@ const QUICK_MODES: Array<{ label: string; value: QuickMode }> = [
 ];
 const SORT_OPTIONS: Array<{ label: string; value: UnifiedOpportunitySortBy }> = [
   { label: "评分", value: "score" },
-  { label: "年化", value: "annualized" },
-  { label: "估算Carry", value: "estimatedCarry" },
-  { label: "成交量", value: "volume" },
-  { label: "下次资金费率", value: "nextFunding" }
+  { label: "年化", value: "annualizedRate" },
+  { label: "估算Carry", value: "estimatedCarryAnnualized" },
+  { label: "成交量", value: "volume24h" },
+  { label: "持仓量", value: "openInterestUsd" },
+  { label: "下次资金费率", value: "nextFundingTime" },
+  { label: "覆盖交易所", value: "exchangeCoverage" }
 ];
-const OPPORTUNITY_SORTS: UnifiedOpportunitySortBy[] = ["score", "annualized", "estimatedCarry", "volume", "nextFunding"];
-
+const OPPORTUNITY_SORTS: UnifiedOpportunitySortBy[] = ["score", "annualizedRate", "estimatedCarryAnnualized", "volume24h", "openInterestUsd", "nextFundingTime", "exchangeCoverage"];
 export default function OpportunitiesPage() {
   const [rows, setRows] = useState<UnifiedOpportunity[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
@@ -137,14 +139,15 @@ export default function OpportunitiesPage() {
     const baseRows = filterUnifiedOpportunities(rows, filters);
     const visibleRows = quickMode === "highRisk" ? baseRows.filter(isHighRiskUnifiedOpportunity) : baseRows;
     return applySort(visibleRows, { sort: sortBy, order: sortOrder }, {
-      annualized: (row) => row.annualizedRate,
-      estimatedCarry: (row) => row.estimatedCarryAnnualized,
-      nextFunding: (row) => row.nextFundingTime,
+      annualizedRate: (row) => row.annualizedRate,
+      estimatedCarryAnnualized: (row) => row.estimatedCarryAnnualized,
+      exchangeCoverage: (row) => getOpportunityExchanges(row).length,
+      nextFundingTime: (row) => row.nextFundingTime,
+      openInterestUsd: (row) => row.openInterestUsd,
       score: (row) => row.score,
-      volume: (row) => row.volume24h
+      volume24h: (row) => row.volume24h
     });
-  }, [exchange, hideHighRisk, minAnnualized, minScore, minVolume24h, opportunityType, quickMode, recommendedOnly, rows, search, sortBy, sortOrder]);
-  const stats = useMemo(() => buildStats(rows), [rows]);
+  }, [exchange, hideHighRisk, minAnnualized, minScore, minVolume24h, opportunityType, quickMode, recommendedOnly, rows, search, sortBy, sortOrder]);  const stats = useMemo(() => buildStats(rows), [rows]);
 
   const updateSort = useCallback((nextSort: UnifiedOpportunitySortBy) => {
     const next = toggleSortState({ sort: sortBy, order: sortOrder }, nextSort);
@@ -270,19 +273,20 @@ export default function OpportunitiesPage() {
               <Th>币种</Th>
               <Th>方向</Th>
               <Th>交易所</Th>
-              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="annualized" onSort={updateSort}>年化</SortableTh>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="annualizedRate" onSort={updateSort}>年化</SortableTh>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="exchangeCoverage" onSort={updateSort}>覆盖交易所</SortableTh>
               <Th align="right">价差 / Basis</Th>
-              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="estimatedCarry" onSort={updateSort}>估算Carry</SortableTh>
-              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="volume" onSort={updateSort}>24h成交量</SortableTh>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="estimatedCarryAnnualized" onSort={updateSort}>估算Carry</SortableTh>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="volume24h" onSort={updateSort}>24h成交量</SortableTh>
               <Th align="right">持仓量</Th>
-              <SortableTh current={{ sort: sortBy, order: sortOrder }} sort="nextFunding" onSort={updateSort}>下次资金费率</SortableTh>
+              <SortableTh current={{ sort: sortBy, order: sortOrder }} sort="nextFundingTime" onSort={updateSort}>下次资金费率</SortableTh>
               <Th>原因</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
             {loading && rows.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={13}>
+                <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={14}>
                   数据加载中...
                 </td>
               </tr>
@@ -314,6 +318,9 @@ export default function OpportunitiesPage() {
                   <span className={row.annualizedRate >= 90 ? "text-orange-300" : "text-emerald-300"}>{formatPercent(row.annualizedRate)}%</span>
                 </Td>
                 <Td align="right">
+                  <span title={getExchangeCoverageTitle(getOpportunityExchanges(row))}>{formatExchangeCoverage(getOpportunityExchanges(row))}</span>
+                </Td>
+                <Td align="right">
                   <span className={Math.abs(row.basisPercent ?? row.spreadPercent ?? 0) >= 1 ? "text-orange-300" : "text-slate-200"}>{formatSpreadBasis(row)}</span>
                 </Td>
                 <Td align="right">{row.estimatedCarryAnnualized === undefined ? "-" : `${formatPercent(row.estimatedCarryAnnualized)}%`}</Td>
@@ -329,7 +336,7 @@ export default function OpportunitiesPage() {
             ))}
             {!loading && filteredRows.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={13}>
+                <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={14}>
                   暂无符合条件的机会。
                 </td>
               </tr>
@@ -439,6 +446,10 @@ function ExchangePair({ row }: { row: UnifiedOpportunity }) {
       {row.secondaryExchange ? <ExchangeBadge label={row.secondaryExchange} /> : null}
     </div>
   );
+}
+
+function getOpportunityExchanges(row: UnifiedOpportunity): string[] {
+  return Array.from(new Set([row.primaryExchange, row.secondaryExchange].flatMap((exchange) => (exchange ? [exchange] : []))));
 }
 
 function formatType(value: "all" | UnifiedOpportunityType) {

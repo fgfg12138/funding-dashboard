@@ -128,11 +128,17 @@ function mapBasisOpportunity(source: BasisOpportunity): UnifiedOpportunity {
 }
 
 function compareUnifiedOpportunity(a: UnifiedOpportunity, b: UnifiedOpportunity, sortBy: UnifiedOpportunityFilters["sortBy"]): number {
-  if (sortBy === "annualized") return b.annualizedRate - a.annualizedRate;
-  if (sortBy === "estimatedCarry") return (b.estimatedCarryAnnualized ?? -Infinity) - (a.estimatedCarryAnnualized ?? -Infinity);
-  if (sortBy === "volume") return (b.volume24h ?? 0) - (a.volume24h ?? 0);
-  if (sortBy === "nextFunding") return (a.nextFundingTime ?? Infinity) - (b.nextFundingTime ?? Infinity);
+  if (sortBy === "annualizedRate") return b.annualizedRate - a.annualizedRate;
+  if (sortBy === "estimatedCarryAnnualized") return (b.estimatedCarryAnnualized ?? -Infinity) - (a.estimatedCarryAnnualized ?? -Infinity);
+  if (sortBy === "volume24h") return (b.volume24h ?? 0) - (a.volume24h ?? 0);
+  if (sortBy === "openInterestUsd") return (b.openInterestUsd ?? 0) - (a.openInterestUsd ?? 0);
+  if (sortBy === "exchangeCoverage") return getExchangeCoverage(b) - getExchangeCoverage(a);
+  if (sortBy === "nextFundingTime") return (a.nextFundingTime ?? Infinity) - (b.nextFundingTime ?? Infinity);
   return b.score - a.score || b.annualizedRate - a.annualizedRate;
+}
+
+function getExchangeCoverage(opportunity: UnifiedOpportunity): number {
+  return new Set([opportunity.primaryExchange, opportunity.secondaryExchange].filter(Boolean)).size;
 }
 
 function getSpreadOrBasis(opportunity: UnifiedOpportunity): number {

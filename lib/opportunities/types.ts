@@ -25,7 +25,14 @@ export type UnifiedOpportunity = {
   sourceId?: string;
 };
 
-export type UnifiedOpportunitySortBy = "score" | "annualized" | "estimatedCarry" | "volume" | "nextFunding";
+export type UnifiedOpportunitySortBy =
+  | "score"
+  | "annualizedRate"
+  | "estimatedCarryAnnualized"
+  | "volume24h"
+  | "openInterestUsd"
+  | "nextFundingTime"
+  | "exchangeCoverage";
 
 export type UnifiedOpportunityFilters = {
   search?: string;

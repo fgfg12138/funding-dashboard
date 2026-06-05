@@ -25,8 +25,8 @@ type AlphaPageParams = {
   order?: string;
   sort?: string;
 };
-type AlphaSortKey = "score" | "latestAnnualized" | "avgAnnualized" | "positiveFundingRatio" | "survivalHours" | "annualizedDecay" | "fundingVolatility" | "qualityScore";
-const ALPHA_SORTS: AlphaSortKey[] = ["score", "latestAnnualized", "avgAnnualized", "positiveFundingRatio", "survivalHours", "annualizedDecay", "fundingVolatility", "qualityScore"];
+type AlphaSortKey = "alphaScore" | "latestAnnualized" | "avgAnnualized" | "positiveFundingRatio" | "survival" | "decay" | "volatility" | "quality";
+const ALPHA_SORTS: AlphaSortKey[] = ["alphaScore", "latestAnnualized", "avgAnnualized", "positiveFundingRatio", "survival", "decay", "volatility", "quality"];
 
 export default async function AlphaPage({
   searchParams
@@ -41,7 +41,7 @@ export default async function AlphaPage({
   const sortState = parseSortState<AlphaSortKey>({
     allowedSorts: ALPHA_SORTS,
     defaultOrder: "desc",
-    defaultSort: "score",
+    defaultSort: "alphaScore",
     order: params.order,
     sort: params.sort
   });
@@ -147,15 +147,15 @@ function AlphaTable({
               <Header>币种</Header>
               <Header>类型</Header>
               <Header>交易所组合</Header>
-              <SortableHeader align="right" params={params} sort="score" sortState={sortState}>评分</SortableHeader>
+              <SortableHeader align="right" params={params} sort="alphaScore" sortState={sortState}>评分</SortableHeader>
               <Header>等级</Header>
               <SortableHeader align="right" params={params} sort="latestAnnualized" sortState={sortState}>最新年化</SortableHeader>
               <SortableHeader align="right" params={params} sort="avgAnnualized" sortState={sortState}>平均年化</SortableHeader>
               <SortableHeader align="right" params={params} sort="positiveFundingRatio" sortState={sortState}>正费率占比</SortableHeader>
-              <SortableHeader align="right" params={params} sort="survivalHours" sortState={sortState}>存活小时</SortableHeader>
-              <SortableHeader align="right" params={params} sort="annualizedDecay" sortState={sortState}>衰减</SortableHeader>
-              <SortableHeader align="right" params={params} sort="fundingVolatility" sortState={sortState}>波动</SortableHeader>
-              <SortableHeader align="right" params={params} sort="qualityScore" sortState={sortState}>质量分</SortableHeader>
+              <SortableHeader align="right" params={params} sort="survival" sortState={sortState}>存活小时</SortableHeader>
+              <SortableHeader align="right" params={params} sort="decay" sortState={sortState}>衰减</SortableHeader>
+              <SortableHeader align="right" params={params} sort="volatility" sortState={sortState}>波动</SortableHeader>
+              <SortableHeader align="right" params={params} sort="quality" sortState={sortState}>质量分</SortableHeader>
               <Header>原因</Header>
             </tr>
           </thead>
@@ -286,13 +286,13 @@ function formatPercent(value?: number): string {
 
 function sortAlphaRows(rows: AlphaOpportunity[], sortState: SortState<AlphaSortKey>): AlphaOpportunity[] {
   return applySort(rows, sortState, {
-    annualizedDecay: (row) => row.annualizedDecay,
+    alphaScore: (row) => row.alphaScore,
     avgAnnualized: (row) => row.avgAnnualized,
-    fundingVolatility: (row) => row.fundingVolatility,
+    decay: (row) => row.annualizedDecay,
     latestAnnualized: (row) => row.latestAnnualized,
     positiveFundingRatio: (row) => row.positiveFundingRatio,
-    qualityScore: (row) => row.qualityScore,
-    score: (row) => row.alphaScore,
-    survivalHours: (row) => row.survivalHours
+    quality: (row) => row.qualityScore,
+    survival: (row) => row.survivalHours,
+    volatility: (row) => row.fundingVolatility
   });
 }

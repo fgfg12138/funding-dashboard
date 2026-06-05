@@ -17,8 +17,8 @@ type BasisApiResponse = {
 };
 
 const EXCHANGES: Array<"all" | ExchangeName> = ["all", "Binance", "OKX", "Bybit"];
-type BasisSortKey = "score" | "annualized" | "estimatedCarry" | "volume" | "openInterest" | "basis";
-const BASIS_SORTS: BasisSortKey[] = ["score", "annualized", "estimatedCarry", "volume", "openInterest", "basis"];
+type BasisSortKey = "score" | "annualizedFundingRate" | "estimatedCarryAnnualized" | "basisPercent" | "volume24h" | "openInterestUsd" | "nextFundingTime";
+const BASIS_SORTS: BasisSortKey[] = ["score", "annualizedFundingRate", "estimatedCarryAnnualized", "basisPercent", "volume24h", "openInterestUsd", "nextFundingTime"];
 
 export default function BasisPage() {
   const [rows, setRows] = useState<BasisOpportunity[]>([]);
@@ -33,7 +33,7 @@ export default function BasisPage() {
   const [minVolume, setMinVolume] = useState(1_000_000);
   const [maxAbsBasis, setMaxAbsBasis] = useState(2);
   const [recommendedOnly, setRecommendedOnly] = useState(false);
-  const [sortBy, setSortBy] = useState<BasisSortKey>("estimatedCarry");
+  const [sortBy, setSortBy] = useState<BasisSortKey>("estimatedCarryAnnualized");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
   useEffect(() => {
@@ -42,7 +42,7 @@ export default function BasisPage() {
       const parsed = parseSortState<BasisSortKey>({
         allowedSorts: BASIS_SORTS,
         defaultOrder: "desc",
-        defaultSort: "estimatedCarry",
+        defaultSort: "estimatedCarryAnnualized",
         order: params.get("order"),
         sort: params.get("sort")
       });
@@ -91,12 +91,13 @@ export default function BasisPage() {
       .filter((row) => (recommendedOnly ? isRecommended(row) : true));
   }, [exchange, maxAbsBasis, minAnnualized, minVolume, recommendedOnly, rows, search]);
   const sortedRows = useMemo(() => applySort(filteredRows, { sort: sortBy, order: sortOrder }, {
-    annualized: (row) => row.annualizedFundingRate,
-    basis: (row) => Math.abs(row.basisPercent),
-    estimatedCarry: (row) => row.estimatedCarryAnnualized,
-    openInterest: (row) => row.openInterestUsd,
+    annualizedFundingRate: (row) => row.annualizedFundingRate,
+    basisPercent: (row) => Math.abs(row.basisPercent),
+    estimatedCarryAnnualized: (row) => row.estimatedCarryAnnualized,
+    nextFundingTime: (row) => row.nextFundingTime,
+    openInterestUsd: (row) => row.openInterestUsd,
     score: (row) => row.score,
-    volume: (row) => row.volume24h
+    volume24h: (row) => row.volume24h
   }), [filteredRows, sortBy, sortOrder]);
 
   const stats = useMemo(() => buildStats(rows), [rows]);
@@ -184,12 +185,12 @@ export default function BasisPage() {
               <Th>交易所</Th>
               <Th align="right">现货价格</Th>
               <Th align="right">永续价格</Th>
-              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="basis">Basis %</SortableTh>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="basisPercent">Basis %</SortableTh>
               <Th align="right">Funding</Th>
-              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="annualized">年化</SortableTh>
-              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="estimatedCarry">估算Carry</SortableTh>
-              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="volume">24h成交量</SortableTh>
-              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="openInterest">持仓量</SortableTh>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="annualizedFundingRate">年化</SortableTh>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="estimatedCarryAnnualized">估算Carry</SortableTh>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="volume24h">24h成交量</SortableTh>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="openInterestUsd">持仓量</SortableTh>
               <Th>下次资金费率</Th>
               <Th>原因</Th>
             </tr>

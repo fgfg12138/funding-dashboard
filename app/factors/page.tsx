@@ -7,6 +7,7 @@ import {
   type FundingFactorBucket,
   type FundingFactorResearchResult
 } from "@/lib/research/fundingFactors";
+import { applySort, buildSortQuery, parseSortState, sortIndicator, type SortOrder, type SortState } from "@/lib/tableSort/tableSort";
 
 export const dynamic = "force-dynamic";
 
@@ -16,14 +17,23 @@ const WINDOW_OPTIONS = [
   { label: "7d", hours: 168 },
   { label: "30d", hours: 720 }
 ];
+type FactorSortKey = "samples" | "min" | "avg" | "max";
+const FACTOR_SORTS: FactorSortKey[] = ["samples", "min", "avg", "max"];
 
 export default async function FactorsPage({
   searchParams
 }: {
-  searchParams: Promise<{ window?: string }>;
+  searchParams: Promise<{ order?: string; sort?: string; window?: string }>;
 }) {
   const params = await searchParams;
   const windowHours = parseWindowHours(params.window);
+  const sortState = parseSortState<FactorSortKey>({
+    allowedSorts: FACTOR_SORTS,
+    defaultOrder: "desc",
+    defaultSort: "samples",
+    order: params.order,
+    sort: params.sort
+  });
   const now = Date.now();
   const from = now - windowHours * 60 * 60_000;
   const [opportunityRows, fundingRows] = await Promise.all([
@@ -31,7 +41,7 @@ export default async function FactorsPage({
     queryAllFundingHistory({ from, to: now, limit: 5000 })
   ]);
   const research = buildFundingFactorResearch({ opportunityRows, fundingRows, now, windowHours });
-  const allBuckets = Object.values(research.bucketsByFactor).flat();
+  const allBuckets = sortBuckets(Object.values(research.bucketsByFactor).flat(), sortState);
 
   return (
     <PageShell
@@ -61,7 +71,7 @@ export default async function FactorsPage({
         </div>
       </section>
 
-      <FactorSummaryTable research={research} />
+      <FactorSummaryTable params={params} research={research} sortState={sortState} />
 
       <section className="grid gap-3 xl:grid-cols-3">
         <BucketTable buckets={allBuckets} metric="avgSurvivalHours" title="按因子分桶看存活时间" />
@@ -72,7 +82,17 @@ export default async function FactorsPage({
   );
 }
 
-function FactorSummaryTable({ research }: { research: FundingFactorResearchResult }) {
+function FactorSummaryTable({
+  params,
+  research,
+  sortState
+}: {
+  params: { order?: string; sort?: string; window?: string };
+  research: FundingFactorResearchResult;
+  sortState: SortState<FactorSortKey>;
+}) {
+  const rows = sortFactorSummaries(research.factorSummaries, sortState);
+
   return (
     <section className="border border-slate-800 bg-panel">
       <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
@@ -84,17 +104,17 @@ function FactorSummaryTable({ research }: { research: FundingFactorResearchResul
           <thead className="sticky top-0 z-10 bg-slate-950 text-slate-400">
             <tr>
               <Header>因子</Header>
-              <Header align="right">样本数</Header>
-              <Header align="right">最小值</Header>
-              <Header align="right">平均值</Header>
-              <Header align="right">最大值</Header>
+              <SortableHeader align="right" params={params} sort="samples" sortState={sortState}>样本数</SortableHeader>
+              <SortableHeader align="right" params={params} sort="min" sortState={sortState}>最小值</SortableHeader>
+              <SortableHeader align="right" params={params} sort="avg" sortState={sortState}>平均值</SortableHeader>
+              <SortableHeader align="right" params={params} sort="max" sortState={sortState}>最大值</SortableHeader>
               <Header>最佳存活桶</Header>
               <Header>最低衰减桶</Header>
               <Header>最佳质量桶</Header>
             </tr>
           </thead>
           <tbody>
-            {research.factorSummaries.map((row) => (
+            {rows.map((row) => (
               <tr className="border-b border-slate-800/70 hover:bg-slate-800/40" key={row.factor}>
                 <Cell>{row.factor}</Cell>
                 <Cell align="right">{row.sampleCount}</Cell>
@@ -112,7 +132,6 @@ function FactorSummaryTable({ research }: { research: FundingFactorResearchResul
     </section>
   );
 }
-
 function BucketTable({
   buckets,
   metric,
@@ -165,6 +184,28 @@ function Header({ align = "left", children }: { align?: "left" | "right"; childr
   return <th className={`whitespace-nowrap px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`}>{children}</th>;
 }
 
+function SortableHeader({
+  align = "left",
+  children,
+  params,
+  sort,
+  sortState
+}: {
+  align?: "left" | "right";
+  children: ReactNode;
+  params: { order?: string; sort?: string; window?: string };
+  sort: FactorSortKey;
+  sortState: SortState<FactorSortKey>;
+}) {
+  return (
+    <th className={`whitespace-nowrap px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`}>
+      <Link className="text-inherit hover:text-cyan-200" href={`/factors?${buildSortQuery(sortState, sort, buildSearchParams(params))}`}>
+        {children}{sortIndicator(sortState, sort)}
+      </Link>
+    </th>
+  );
+}
+
 function Cell({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {
   return <td className={`px-3 py-2 align-top tabular-nums ${align === "right" ? "text-right" : "text-left"}`}>{children}</td>;
 }
@@ -182,4 +223,33 @@ function formatMetric(value: number, metric: "avgSurvivalHours" | "avgAnnualized
 function formatNumber(value?: number): string {
   if (value === undefined || Number.isNaN(value)) return "-";
   return value.toFixed(2);
+}
+
+function buildSearchParams(params: { order?: string; sort?: string; window?: string }): URLSearchParams {
+  const searchParams = new URLSearchParams();
+  if (params.window) searchParams.set("window", params.window);
+  if (params.sort) searchParams.set("sort", params.sort);
+  if (params.order) searchParams.set("order", params.order);
+  return searchParams;
+}
+
+function sortFactorSummaries(
+  rows: FundingFactorResearchResult["factorSummaries"],
+  sortState: SortState<FactorSortKey>
+): FundingFactorResearchResult["factorSummaries"] {
+  return applySort(rows, sortState, {
+    avg: (row) => row.avgValue,
+    max: (row) => row.maxValue,
+    min: (row) => row.minValue,
+    samples: (row) => row.sampleCount
+  });
+}
+
+function sortBuckets(rows: FundingFactorBucket[], sortState: SortState<FactorSortKey>): FundingFactorBucket[] {
+  return applySort(rows, sortState, {
+    avg: (row) => row.avgQualityScore,
+    max: (row) => row.maxValue,
+    min: (row) => row.minValue,
+    samples: (row) => row.sampleCount
+  });
 }

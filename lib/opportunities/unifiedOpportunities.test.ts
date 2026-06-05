@@ -113,7 +113,7 @@ describe("unifiedOpportunities", () => {
       minScore: 60,
       minAnnualized: 40,
       recommendedOnly: true,
-      sortBy: "estimatedCarry"
+      sortBy: "estimatedCarryAnnualized"
     });
 
     expect(filtered.map((row) => row.symbol)).toEqual(["SOL/USDT", "BTC/USDT"]);

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { RiskBadge, ScoreBadge, StatCard } from "@/components/ui/dashboard";
 import { DASHBOARD_MODULES, getDashboardModuleConfig, parseDashboardModule, type DashboardModule } from "@/lib/dashboard/dashboardModule";
+import { formatExchangeCoverage, getExchangeCoverageTitle } from "@/lib/exchanges/exchangeCoverage";
 import { applySort, parseSortState, sortIndicator, toggleSortState, type SortOrder } from "@/lib/tableSort/tableSort";
 import type {
   CrossExchangeOpportunity,
@@ -22,8 +23,9 @@ type ApiResponse<T> = {
 };
 
 const EXCHANGES: ExchangeName[] = ["Binance", "OKX", "Bybit"];
-type DashboardSortKey = "score" | "annualized" | "volume" | "priceSpread" | "openInterest";
-const DASHBOARD_SORTS: DashboardSortKey[] = ["score", "annualized", "volume", "priceSpread", "openInterest"];
+const EXCHANGE_COVERAGE_OPTIONS = [0, 2, 3, 4, 5, 6, 8];
+type DashboardSortKey = "score" | "annualizedSpread" | "annualizedRate" | "fundingRate" | "volume24h" | "openInterestUsd" | "exchangeCoverage" | "nextFundingTime" | "priceSpread";
+const DASHBOARD_SORTS: DashboardSortKey[] = ["score", "annualizedSpread", "annualizedRate", "fundingRate", "volume24h", "openInterestUsd", "exchangeCoverage", "nextFundingTime", "priceSpread"];
 
 export default function DashboardPage() {
   const [activeModule, setActiveModule] = useState<DashboardModule>("spot-perp");
@@ -32,14 +34,14 @@ export default function DashboardPage() {
   const [spotRows, setSpotRows] = useState<SpotPerpOpportunity[]>([]);
   const [search, setSearch] = useState("");
   const [minVolume, setMinVolume] = useState(1_000_000);
-  const [minExchangeCount, setMinExchangeCount] = useState(2);
+  const [minExchangeCount, setMinExchangeCount] = useState(0);
   const [recommendedOnly, setRecommendedOnly] = useState(false);
   const [enabledExchanges, setEnabledExchanges] = useState<Record<ExchangeName, boolean>>({
     Binance: true,
     OKX: true,
     Bybit: true
   });
-  const [sortBy, setSortBy] = useState<DashboardSortKey>("annualized");
+  const [sortBy, setSortBy] = useState<DashboardSortKey>("annualizedRate");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [errors, setErrors] = useState<string[]>([]);
   const [stale, setStale] = useState(false);
@@ -50,11 +52,12 @@ export default function DashboardPage() {
   useEffect(() => {
     const syncModuleFromUrl = () => {
       const params = new URLSearchParams(window.location.search);
-      setActiveModule(parseDashboardModule(params.get("module")));
+      const module = parseDashboardModule(params.get("module"));
+      setActiveModule(module);
       const parsed = parseSortState<DashboardSortKey>({
         allowedSorts: DASHBOARD_SORTS,
         defaultOrder: "desc",
-        defaultSort: "annualized",
+        defaultSort: getDefaultDashboardSort(module),
         order: params.get("order"),
         sort: params.get("sort")
       });
@@ -103,7 +106,7 @@ export default function DashboardPage() {
     return crossRows
       .filter((row) => (query ? row.symbol.includes(query) || row.base.includes(query) : true))
       .filter((row) => (row.volume24h ?? 0) >= minVolume)
-      .filter((row) => Object.values(row.markets).filter(Boolean).length >= minExchangeCount)
+      .filter((row) => getCrossExchangeNames(row).length >= minExchangeCount)
       .filter((row) => Object.keys(row.markets).some((exchange) => enabledExchanges[exchange as ExchangeName]))
       .filter((row) => (recommendedOnly ? isRecommendedOpportunity(row) : true))
       .filter((row) => (recommendedOnly ? isRecommendedOpportunity(row) : true));
@@ -119,31 +122,42 @@ export default function DashboardPage() {
   }, [enabledExchanges, minVolume, recommendedOnly, search, spotRows]);
 
   const sortedCrossRows = useMemo(() => applySort(filteredCrossRows, { sort: sortBy, order: sortOrder }, {
-    annualized: (row) => row.annualizedSpread,
-    openInterest: (row) => row.openInterestUsd,
+    annualizedRate: (row) => row.annualizedSpread,
+    annualizedSpread: (row) => row.annualizedSpread,
+    exchangeCoverage: (row) => getCrossExchangeNames(row).length,
+    fundingRate: (row) => Math.max(...Object.values(row.fundingRates).filter((value): value is number => Number.isFinite(value))),
+    nextFundingTime: (row) => row.nextFundingTime,
+    openInterestUsd: (row) => row.openInterestUsd,
     priceSpread: (row) => Math.abs(row.priceSpread),
     score: (row) => row.score,
-    volume: (row) => row.volume24h
+    volume24h: (row) => row.volume24h
   }), [filteredCrossRows, sortBy, sortOrder]);
 
   const sortedSpotRows = useMemo(() => applySort(filteredSpotRows, { sort: sortBy, order: sortOrder }, {
-    annualized: (row) => row.annualized,
-    openInterest: () => undefined,
+    annualizedRate: (row) => row.annualized,
+    annualizedSpread: (row) => row.annualized,
+    exchangeCoverage: (row) => getSpotPerpExchangeNames(row).length,
+    fundingRate: (row) => row.fundingRate,
+    nextFundingTime: (row) => row.nextFundingTime,
+    openInterestUsd: () => undefined,
     priceSpread: (row) => Math.abs(row.priceSpread),
     score: (row) => row.score,
-    volume: (row) => row.volume24h
+    volume24h: (row) => row.volume24h
   }), [filteredSpotRows, sortBy, sortOrder]);
 
   const activeModuleConfig = getDashboardModuleConfig(activeModule);
 
   const handleModuleChange = useCallback((module: DashboardModule) => {
+    const nextSort = getDefaultDashboardSort(module);
     setActiveModule(module);
+    setSortBy(nextSort);
+    setSortOrder("desc");
     const params = new URLSearchParams(window.location.search);
     params.set("module", module);
-    params.set("sort", sortBy);
-    params.set("order", sortOrder);
+    params.set("sort", nextSort);
+    params.set("order", "desc");
     window.history.pushState(null, "", `/dashboard?${params.toString()}`);
-  }, [sortBy, sortOrder]);
+  }, []);
 
   const updateSort = useCallback((nextSort: DashboardSortKey) => {
     const next = toggleSortState({ sort: sortBy, order: sortOrder }, nextSort);
@@ -187,8 +201,9 @@ export default function DashboardPage() {
               <option value={10_000_000}>$10M+</option>
             </select>
             <select className="h-9 border border-slate-700 bg-slate-950 px-3 text-sm outline-none focus:border-cyan-400" value={minExchangeCount} onChange={(event) => setMinExchangeCount(Number(event.target.value))}>
-              <option value={2}>2+ 交易所</option>
-              <option value={3}>3 交易所</option>
+              {EXCHANGE_COVERAGE_OPTIONS.map((count) => (
+                <option key={count} value={count}>{count === 0 ? "\u5168\u90e8\u8986\u76d6\u6570" : `\u2265${count}\u5bb6\u4ea4\u6613\u6240`}</option>
+              ))}
             </select>
             <div className="flex h-9 items-center gap-2 border border-slate-700 bg-slate-950 px-3">
               {EXCHANGES.map((exchange) => (
@@ -204,10 +219,14 @@ export default function DashboardPage() {
             </div>
             <select className="h-9 border border-slate-700 bg-slate-950 px-3 text-sm outline-none focus:border-cyan-400" value={sortBy} onChange={(event) => updateSort(event.target.value as DashboardSortKey)}>
               <option value="score">评分</option>
-              <option value="annualized">年化</option>
+              <option value="annualizedRate">年化</option>
+              <option value="annualizedSpread">年化价差</option>
+              <option value="fundingRate">Funding</option>
               <option value="priceSpread">价差</option>
-              <option value="volume">24h 成交量</option>
-              <option value="openInterest">持仓量</option>
+              <option value="volume24h">24h成交量</option>
+              <option value="openInterestUsd">持仓量</option>
+              <option value="exchangeCoverage">覆盖交易所</option>
+              <option value="nextFundingTime">下次资金费率</option>
             </select>
             <label className="flex h-9 items-center gap-2 border border-slate-700 bg-slate-950 px-3 text-sm text-slate-300">
               <input checked={recommendedOnly} type="checkbox" onChange={(event) => setRecommendedOnly(event.target.checked)} />
@@ -273,6 +292,18 @@ function SummaryCards({ summary }: { summary: DashboardSummary | null }) {
   );
 }
 
+function getDefaultDashboardSort(module: DashboardModule): DashboardSortKey {
+  return module === "cross" ? "annualizedSpread" : "annualizedRate";
+}
+
+function getCrossExchangeNames(row: CrossExchangeOpportunity): string[] {
+  return Object.keys(row.markets).filter((exchange) => row.markets[exchange as ExchangeName]);
+}
+
+function getSpotPerpExchangeNames(row: SpotPerpOpportunity): string[] {
+  return Array.from(new Set([row.spotExchange, row.perpExchange]));
+}
+
 function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -307,14 +338,14 @@ function CrossExchangeTable({
             ["Binance", "right"],
             ["OKX", "right"],
             ["Bybit", "right"],
-            ["年化价差", "right", "annualized"],
+            ["年化价差", "right", "annualizedSpread"],
             ["方向", "left"],
             ["价格价差", "right", "priceSpread"],
             ["价差方向说明", "left"],
             ["下次资金费率", "left"],
             ["倒计时", "left"],
-            ["24h成交量", "right", "volume"],
-            ["持仓量", "right", "openInterest"]
+            ["24h成交量", "right", "volume24h"],
+            ["持仓量", "right", "openInterestUsd"]
           ]}
           onSort={onSort}
           sortState={sortState}
@@ -328,7 +359,7 @@ function CrossExchangeTable({
               <Td><Reason value={row.opportunityReason} /></Td>
               <Td><strong>{row.symbol}</strong></Td>
               <Td><HistoryLink symbol={row.symbol} /></Td>
-              <Td align="right">{row.exchangeCount}</Td>
+              <Td align="right"><span title={getExchangeCoverageTitle(getCrossExchangeNames(row))}>{formatExchangeCoverage(getCrossExchangeNames(row))}</span></Td>
               <Td align="right"><RateCell annualized={row.annualizedRates.Binance} hours={row.fundingIntervalHours.Binance} rate={row.fundingRates.Binance} /></Td>
               <Td align="right"><RateCell annualized={row.annualizedRates.OKX} hours={row.fundingIntervalHours.OKX} rate={row.fundingRates.OKX} /></Td>
               <Td align="right"><RateCell annualized={row.annualizedRates.Bybit} hours={row.fundingIntervalHours.Bybit} rate={row.fundingRates.Bybit} /></Td>
@@ -373,13 +404,13 @@ function SpotPerpTable({
             ["交易所数量", "right"],
             ["现货交易所", "left"],
             ["合约交易所", "left"],
-            ["Funding", "right"],
-            ["年化", "right", "annualized"],
+            ["Funding", "right", "fundingRate"],
+            ["年化", "right", "annualizedRate"],
             ["现货价格", "right"],
             ["合约价格", "right"],
             ["价差", "right", "priceSpread"],
             ["价差方向说明", "left"],
-            ["24h成交量", "right", "volume"]
+            ["24h成交量", "right", "volume24h"]
           ]}
           onSort={onSort}
           sortState={sortState}
@@ -393,7 +424,7 @@ function SpotPerpTable({
               <Td><Reason value={row.opportunityReason} /></Td>
               <Td><strong>{row.symbol}</strong></Td>
               <Td><HistoryLink symbol={row.symbol} /></Td>
-              <Td align="right">{row.exchangeCount}</Td>
+              <Td align="right"><span title={getExchangeCoverageTitle(getSpotPerpExchangeNames(row))}>{formatExchangeCoverage(getSpotPerpExchangeNames(row))}</span></Td>
               <Td>{row.spotExchange}</Td>
               <Td>{row.perpExchange}</Td>
               <Td align="right"><ColoredPercent value={row.fundingRate * 100} /></Td>
