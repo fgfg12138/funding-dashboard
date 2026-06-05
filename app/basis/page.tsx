@@ -88,6 +88,10 @@ export default function BasisPage() {
         <StatCard label="推荐机会" value={stats.recommendedCount.toLocaleString()} tone="yellow" />
       </section>
 
+      <section className="border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+        估算 Carry 为简化模型，未扣手续费、滑点和 Funding 变化风险；本页仅用于只读看盘，不构成交易执行。
+      </section>
+
       <section className="border border-slate-800 bg-slate-950/40 p-3">
         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_140px_150px_150px_140px_160px]">
           <label className="space-y-1 text-sm">
