@@ -24,7 +24,7 @@ export function PageShell({
   activeHref,
   children,
   description,
-  eyebrow = "V1 只读看盘",
+  eyebrow = "V1 \u53ea\u8bfb\u770b\u76d8",
   loading = false,
   onRefresh,
   refreshHref,
@@ -43,13 +43,9 @@ export function PageShell({
               <p className="mt-1 text-sm text-slate-400">{description}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-slate-400">
-                更新时间 <span className="text-slate-100">{formatUpdatedAt(updatedAt)}</span>
-              </div>
+              <div className="border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-slate-400">{"\u66f4\u65b0\u65f6\u95f4"} <span className="text-slate-100">{formatUpdatedAt(updatedAt)}</span></div>
               {showRefresh ? renderRefresh({ loading, onRefresh, refreshHref }) : null}
-              <span className="border border-emerald-400/40 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-200">
-                只读 / 不交易
-              </span>
+              <span className="border border-emerald-400/40 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-200">{"\u53ea\u8bfb / \u4e0d\u4ea4\u6613"}</span>
               {actions}
             </div>
           </div>
@@ -75,18 +71,14 @@ function renderRefresh({
 
   if (onRefresh) {
     return (
-      <button className={className} disabled={loading} onClick={onRefresh} title="刷新公开行情" type="button">
-        <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-        刷新
-      </button>
+      <button className={className} disabled={loading} onClick={onRefresh} title="\u5237\u65b0\u516c\u5f00\u884c\u60c5" type="button">
+        <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />{"\u5237\u65b0"}</button>
     );
   }
 
   return (
-    <Link className={className} href={refreshHref ?? "#"} title="刷新页面">
-      <RefreshCw className="h-4 w-4" />
-      刷新
-    </Link>
+    <Link className={className} href={refreshHref ?? "#"} title="\u5237\u65b0\u9875\u9762">
+      <RefreshCw className="h-4 w-4" />{"\u5237\u65b0"}</Link>
   );
 }
 

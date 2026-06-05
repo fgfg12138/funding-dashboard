@@ -6,6 +6,7 @@ import type {
   SpotMarket,
   SpotPerpOpportunity
 } from "../exchanges/types";
+import { formatExchangeDirection } from "./formatters";
 
 const LOW_LIQUIDITY = "\u4f4e\u6d41\u52a8\u6027";
 const MISSING_OPEN_INTEREST = "\u6301\u4ed3\u91cf\u7f3a\u5931";
@@ -113,6 +114,11 @@ export function calculateCrossExchangeFundingSpread(
   const volume24h = sumOptional(validMarkets.map((market) => market.volume24h));
   const openInterestUsd = sumOptional(validMarkets.map((market) => market.openInterestUsd));
   const priceSpread = calculateDirectionalPriceSpread(highest.market.markPrice, lowest.market.markPrice);
+  const directionText = formatExchangeDirection({
+    longExchange: lowest.market.exchange,
+    shortExchange: highest.market.exchange,
+    spreadPercent: priceSpread
+  });
   const nextFundingTime = Math.min(...validMarkets.map((market) => market.nextFundingTime).filter(Boolean));
   const qualityInput = {
     annualizedRate: annualizedSpread,
@@ -133,7 +139,7 @@ export function calculateCrossExchangeFundingSpread(
     fundingRates,
     fundingIntervalHours,
     annualizedSpread,
-    direction: `\u7a7a ${highest.market.exchange} / \u591a ${lowest.market.exchange}`,
+    direction: directionText.direction,
     shortExchange: highest.market.exchange,
     longExchange: lowest.market.exchange,
     exchangeCount,
@@ -147,7 +153,7 @@ export function calculateCrossExchangeFundingSpread(
       qualityInput.hasMissingOpenInterest
     ),
     priceSpread,
-    priceSpreadDirection: describeCrossPriceSpread(highest.market.exchange, lowest.market.exchange, priceSpread),
+    priceSpreadDirection: directionText.priceSpreadDirection,
     nextFundingTime,
     volume24h,
     openInterestUsd
@@ -239,14 +245,9 @@ function describeOpenInterest(hasMissingOpenInterest: boolean | undefined): stri
   return hasMissingOpenInterest ? "\u6301\u4ed3\u91cf\u7f3a\u5931" : "\u6301\u4ed3\u91cf\u6b63\u5e38";
 }
 
-function describeCrossPriceSpread(shortExchange: ExchangeName, longExchange: ExchangeName, priceSpread: number): string {
-  const relation = priceSpread >= 0 ? "above" : "below";
-  return `Short ${shortExchange} mark is ${Math.abs(priceSpread).toFixed(2)}% ${relation} long ${longExchange} mark`;
-}
-
 function describeSpotPerpPriceSpread(perpExchange: ExchangeName, spotExchange: ExchangeName, priceSpread: number): string {
-  const relation = priceSpread >= 0 ? "above" : "below";
-  return `${perpExchange} perp is ${Math.abs(priceSpread).toFixed(2)}% ${relation} ${spotExchange} spot`;
+  const relation = priceSpread >= 0 ? "高于" : "低于";
+  return `${perpExchange} 永续标记价格${relation} ${spotExchange} 现货 ${Math.abs(priceSpread).toFixed(2)}%`;
 }
 
 function clamp(value: number): number {

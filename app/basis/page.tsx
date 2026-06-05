@@ -115,7 +115,7 @@ export default function BasisPage() {
     <PageShell
       activeHref="/basis"
       description="买现货 + 空永续的只读基差看板，只调用公开行情，不接 API Key，不下单。"
-      eyebrow="Basis / Short Spread Board"
+      eyebrow="Basis / 基差看板"
       loading={loading}
       onRefresh={() => void loadData()}
       title="基差看板"

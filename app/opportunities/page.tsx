@@ -42,7 +42,7 @@ const EXCHANGES: Array<"all" | ExchangeName> = ["all", "Binance", "OKX", "Bybit"
 const QUICK_MODES: Array<{ label: string; value: QuickMode }> = [
   { label: "全部", value: "all" },
   { label: "跨所费率差", value: "CrossExchange" },
-  { label: "现货/永续", value: "SpotPerp" },
+  { label: "现货+永续", value: "SpotPerp" },
   { label: "Basis", value: "Basis" },
   { label: "推荐", value: "recommended" },
   { label: "高风险", value: "highRisk" }
@@ -172,8 +172,8 @@ export default function OpportunitiesPage() {
         <StatCard label="最高评分" value={stats.highestScore.toLocaleString()} tone="green" />
         <StatCard label="最高年化" value={`${formatPercent(stats.highestAnnualized)}%`} tone="yellow" />
         <StatCard label="高风险" value={stats.highRisk.toLocaleString()} tone="orange" />
-        <StatCard label="Funding Markets" value={(meta?.fundingMarketCount ?? 0).toLocaleString()} />
-        <StatCard label="Spot Markets" value={(meta?.spotMarketCount ?? 0).toLocaleString()} />
+        <StatCard label="合约市场数" value={(meta?.fundingMarketCount ?? 0).toLocaleString()} />
+        <StatCard label="现货市场数" value={(meta?.spotMarketCount ?? 0).toLocaleString()} />
       </section>
 
       <section className="flex gap-1 overflow-x-auto border-y border-slate-800 bg-slate-950/40 px-2 py-2">
@@ -197,10 +197,10 @@ export default function OpportunitiesPage() {
         footer={
           <>
             <span>当前行数: {filteredRows.length.toLocaleString()}</span>
-            <span>Cross: {meta?.crossCount?.toLocaleString() ?? "-"}</span>
-            <span>Spot/Perp: {meta?.spotPerpCount?.toLocaleString() ?? "-"}</span>
+            <span>跨所: {meta?.crossCount?.toLocaleString() ?? "-"}</span>
+            <span>现货+永续: {meta?.spotPerpCount?.toLocaleString() ?? "-"}</span>
             <span>Basis: {meta?.basisCount?.toLocaleString() ?? "-"}</span>
-            <span>Unified: {meta?.unifiedCount?.toLocaleString() ?? "-"}</span>
+            <span>统一机会: {meta?.unifiedCount?.toLocaleString() ?? "-"}</span>
             <span>只读 / 无 API Key / 不交易 / 不执行</span>
           </>
         }
@@ -443,8 +443,8 @@ function ExchangePair({ row }: { row: UnifiedOpportunity }) {
 
 function formatType(value: "all" | UnifiedOpportunityType) {
   if (value === "all") return "全部";
-  if (value === "CrossExchange") return "跨所费率差";
-  if (value === "SpotPerp") return "现货/永续";
+  if (value === "CrossExchange") return "跨交易所费率差";
+  if (value === "SpotPerp") return "现货+永续";
   return "Basis";
 }
 

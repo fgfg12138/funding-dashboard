@@ -17,15 +17,15 @@ const cross: CrossExchangeOpportunity = {
   fundingRates: {},
   fundingIntervalHours: {},
   annualizedSpread: 45,
-  direction: "Short Bybit / Long Binance",
+  direction: "空 Bybit / 多 Binance",
   shortExchange: "Bybit",
   longExchange: "Binance",
   exchangeCount: 2,
   score: 72,
   riskTags: [],
-  opportunityReason: "Bybit annualized funding is above Binance",
+  opportunityReason: "Bybit 年化高于 Binance",
   priceSpread: 0.4,
-  priceSpreadDirection: "Short Bybit mark is above Binance",
+  priceSpreadDirection: "Bybit 标记价格高于 Binance 0.20%",
   nextFundingTime: 10_000,
   volume24h: 20_000_000,
   openInterestUsd: 50_000_000
@@ -46,7 +46,7 @@ const spotPerp: SpotPerpOpportunity = {
   spotPrice: 3000,
   perpPrice: 3006,
   priceSpread: 0.2,
-  priceSpreadDirection: "OKX perp above spot",
+  priceSpreadDirection: "OKX 永续标记价格高于 OKX 现货 0.20%",
   volume24h: 3_000_000,
   nextFundingTime: 20_000
 };

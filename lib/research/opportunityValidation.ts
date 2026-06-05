@@ -193,7 +193,7 @@ function getOpportunityIdentity(row: OpportunityHistoryRecord): string {
 
 function getOpportunityLabel(row: OpportunityHistoryRecord): string {
   if (row.type === "cross-exchange") {
-    return row.direction ?? `Short ${row.shortExchange ?? "-"} / Long ${row.longExchange ?? "-"}`;
+    return row.direction ?? `空 ${row.shortExchange ?? "-"} / 多 ${row.longExchange ?? "-"}`;
   }
 
   return `${row.spotExchange ?? "-"} spot + ${row.perpExchange ?? "-"} perp`;

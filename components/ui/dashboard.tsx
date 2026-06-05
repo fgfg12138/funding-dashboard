@@ -147,8 +147,9 @@ export function TypeBadge({ label }: { label: "CrossExchange" | "SpotPerp" | "Ba
     SpotPerp: "border-cyan-400/50 bg-cyan-400/10 text-cyan-200",
     Basis: "border-emerald-400/50 bg-emerald-400/10 text-emerald-200"
   }[label];
+  const text = label === "CrossExchange" ? "跨交易所费率差" : label === "SpotPerp" ? "现货+永续" : "Basis";
 
-  return <span className={`border px-2 py-0.5 text-xs ${tone}`}>{label}</span>;
+  return <span className={`border px-2 py-0.5 text-xs ${tone}`}>{text}</span>;
 }
 
 export function ReadOnlyPill() {

@@ -175,8 +175,8 @@ function AlphaTimeline({ points }: { points: AlphaTimelinePoint[] }) {
               <Header>Time</Header>
               <Header>Score</Header>
               <Header>Grade</Header>
-              <Header>Latest</Header>
-              <Header>Quality</Header>
+              <Header>最新年化</Header>
+              <Header>质量分</Header>
             </tr>
           </thead>
           <tbody>
@@ -211,10 +211,10 @@ function AlphaComparisonTable({ rows }: { rows: AlphaComparisonRow[] }) {
               <Header>Score</Header>
               <Header>Grade</Header>
               <Header>Type</Header>
-              <Header>Survival</Header>
-              <Header>Decay</Header>
-              <Header>Quality</Header>
-              <Header>Volatility</Header>
+              <Header>存活率</Header>
+              <Header>衰减率</Header>
+              <Header>质量分</Header>
+              <Header>波动率</Header>
             </tr>
           </thead>
           <tbody>

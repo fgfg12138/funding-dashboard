@@ -391,7 +391,7 @@ function LatestExchangeTable({ rows }: { rows: FundingHistoryRecord[] }) {
   return (
     <section className="rounded border border-slate-800 bg-panel p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold text-white">Latest Exchange Comparison</h2>
+        <h2 className="text-base font-semibold text-white">最新交易所对比</h2>
         <span className="text-xs text-slate-500">{rows.length} exchanges</span>
       </div>
       <div className="overflow-x-auto">

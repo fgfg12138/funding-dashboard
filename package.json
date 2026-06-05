@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "lint:i18n": "node scripts/lint-i18n.mjs",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",

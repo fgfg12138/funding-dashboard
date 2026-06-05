@@ -167,9 +167,9 @@ function FundingTable({ rows, title }: { rows: FundingHeatmapRow[]; title: strin
             <tr>
               <Header>Symbol</Header>
               <Header>Exchange</Header>
-              <Header>Latest</Header>
+              <Header>最新年化</Header>
               <Header>Avg</Header>
-              <Header>Volatility</Header>
+              <Header>波动率</Header>
               <Header>Positive</Header>
               <Header>Snapshots</Header>
             </tr>

@@ -53,7 +53,7 @@ export default function DebugPage() {
         <header className="flex flex-col gap-3 border-b border-slate-800 pb-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Market Debug</p>
-            <h1 className="mt-2 text-2xl font-semibold text-white">Normalized Funding Markets</h1>
+            <h1 className="mt-2 text-2xl font-semibold text-white">标准化合约市场</h1>
             <p className="mt-1 text-sm text-slate-400">只读 raw exchange fields mapped to the internal funding market model.</p>
           </div>
           <button

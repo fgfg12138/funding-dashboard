@@ -213,7 +213,7 @@ export function StrategyManager() {
                       {strategy.name}
                     </button>
                   </Cell>
-                  <Cell>{strategy.strategyType}</Cell>
+                  <Cell>{formatStrategyType(strategy.strategyType)}</Cell>
                   <Cell>{strategy.symbol}</Cell>
                   <Cell>{strategy.exchangePair}</Cell>
                   <Cell className={getStatusClass(strategy.status)}>{strategy.status}</Cell>
@@ -383,12 +383,24 @@ function SelectInput({
       >
         {options.map((option) => (
           <option key={option} value={option}>
-            {option}
+            {formatSelectOption(option)}
           </option>
         ))}
       </select>
     </label>
   );
+}
+
+function formatSelectOption(option: string) {
+  if (option === "SpotPerp" || option === "CrossExchange") {
+    return formatStrategyType(option as StrategyType);
+  }
+
+  return option;
+}
+
+function formatStrategyType(strategyType: StrategyType) {
+  return strategyType === "SpotPerp" ? "现货+永续" : "跨交易所费率差";
 }
 
 function Header({ children }: { children: React.ReactNode }) {

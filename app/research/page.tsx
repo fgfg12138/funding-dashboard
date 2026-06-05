@@ -71,9 +71,9 @@ export default async function ResearchPage({
 
         <form className="grid gap-3 border-b border-slate-800 pb-4 lg:grid-cols-6" action="/research">
           <input name="window" type="hidden" value={`${windowHours}h`} />
-          <FilterInput defaultValue={params.minLatestAnnualized ?? "30"} label="Min latest annualized" name="minLatestAnnualized" />
-          <FilterInput defaultValue={params.minSurvivalHours ?? "4"} label="Min survival hours" name="minSurvivalHours" />
-          <FilterInput defaultValue={params.maxAnnualizedDecay ?? "30"} label="Max annualized decay" name="maxAnnualizedDecay" />
+          <FilterInput defaultValue={params.minLatestAnnualized ?? "30"} label="最低最新年化" name="minLatestAnnualized" />
+          <FilterInput defaultValue={params.minSurvivalHours ?? "4"} label="最低存活小时" name="minSurvivalHours" />
+          <FilterInput defaultValue={params.maxAnnualizedDecay ?? "30"} label="最大年化衰减" name="maxAnnualizedDecay" />
           <FilterInput defaultValue={params.maxAbsPriceSpreadChange ?? ""} label="Max abs spread change" name="maxAbsPriceSpreadChange" />
           <label className="block">
             <span className="mb-1 block text-xs text-slate-500">Type</span>
@@ -106,8 +106,8 @@ export default async function ResearchPage({
 
         <section className="grid gap-4 xl:grid-cols-3">
           <ResearchTable rows={research.topStable} title="Top Stable Opportunities" />
-          <ResearchTable rows={research.topDecayed} title="Top Decayed Opportunities" />
-          <ResearchTable rows={research.longestSurvival} title="Longest Survival Opportunities" />
+          <ResearchTable rows={research.topDecayed} title="衰减最高机会" />
+          <ResearchTable rows={research.longestSurvival} title="存活最长机会" />
         </section>
       </div>
     </main>
@@ -128,13 +128,13 @@ function ResearchTable({ rows, title }: { rows: OpportunityResearchResult["topSt
               <Header>Symbol</Header>
               <Header>Type</Header>
               <Header>Pair</Header>
-              <Header>Quality</Header>
-              <Header>Survival</Header>
-              <Header>Latest</Header>
-              <Header>Decay</Header>
+              <Header>质量分</Header>
+              <Header>存活率</Header>
+              <Header>最新年化</Header>
+              <Header>衰减率</Header>
               <Header>Spread Change</Header>
               <Header>First seen</Header>
-              <Header>Latest seen</Header>
+              <Header>最新出现</Header>
               <Header>Snapshots</Header>
             </tr>
           </thead>
