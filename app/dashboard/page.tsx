@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { RiskBadge, ScoreBadge, StatCard } from "@/components/ui/dashboard";
 import { DASHBOARD_MODULES, getDashboardModuleConfig, parseDashboardModule, type DashboardModule } from "@/lib/dashboard/dashboardModule";
+import { applySort, parseSortState, sortIndicator, toggleSortState, type SortOrder } from "@/lib/tableSort/tableSort";
 import type {
   CrossExchangeOpportunity,
   DashboardSummary,
@@ -21,6 +22,8 @@ type ApiResponse<T> = {
 };
 
 const EXCHANGES: ExchangeName[] = ["Binance", "OKX", "Bybit"];
+type DashboardSortKey = "score" | "annualized" | "volume" | "priceSpread" | "openInterest";
+const DASHBOARD_SORTS: DashboardSortKey[] = ["score", "annualized", "volume", "priceSpread", "openInterest"];
 
 export default function DashboardPage() {
   const [activeModule, setActiveModule] = useState<DashboardModule>("spot-perp");
@@ -36,7 +39,8 @@ export default function DashboardPage() {
     OKX: true,
     Bybit: true
   });
-  const [sortMode, setSortMode] = useState("spread");
+  const [sortBy, setSortBy] = useState<DashboardSortKey>("annualized");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [errors, setErrors] = useState<string[]>([]);
   const [stale, setStale] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
@@ -45,7 +49,17 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const syncModuleFromUrl = () => {
-      setActiveModule(parseDashboardModule(new URLSearchParams(window.location.search).get("module")));
+      const params = new URLSearchParams(window.location.search);
+      setActiveModule(parseDashboardModule(params.get("module")));
+      const parsed = parseSortState<DashboardSortKey>({
+        allowedSorts: DASHBOARD_SORTS,
+        defaultOrder: "desc",
+        defaultSort: "annualized",
+        order: params.get("order"),
+        sort: params.get("sort")
+      });
+      setSortBy(parsed.sort);
+      setSortOrder(parsed.order);
     };
 
     syncModuleFromUrl();
@@ -92,15 +106,8 @@ export default function DashboardPage() {
       .filter((row) => Object.values(row.markets).filter(Boolean).length >= minExchangeCount)
       .filter((row) => Object.keys(row.markets).some((exchange) => enabledExchanges[exchange as ExchangeName]))
       .filter((row) => (recommendedOnly ? isRecommendedOpportunity(row) : true))
-      .sort((a, b) => {
-        if (sortMode === "score") return b.score - a.score;
-        if (sortMode === "volume") return (b.volume24h ?? 0) - (a.volume24h ?? 0);
-        if (sortMode === "single") {
-          return Math.max(...Object.values(b.annualizedRates).map(Number)) - Math.max(...Object.values(a.annualizedRates).map(Number));
-        }
-        return b.annualizedSpread - a.annualizedSpread;
-      });
-  }, [crossRows, enabledExchanges, minExchangeCount, minVolume, recommendedOnly, search, sortMode]);
+      .filter((row) => (recommendedOnly ? isRecommendedOpportunity(row) : true));
+  }, [crossRows, enabledExchanges, minExchangeCount, minVolume, recommendedOnly, search]);
 
   const filteredSpotRows = useMemo(() => {
     const query = search.trim().toUpperCase();
@@ -109,19 +116,45 @@ export default function DashboardPage() {
       .filter((row) => (row.volume24h ?? 0) >= minVolume)
       .filter((row) => enabledExchanges[row.spotExchange] && enabledExchanges[row.perpExchange])
       .filter((row) => (recommendedOnly ? isRecommendedOpportunity(row) : true))
-      .sort((a, b) => {
-        if (sortMode === "score") return b.score - a.score;
-        if (sortMode === "volume") return (b.volume24h ?? 0) - (a.volume24h ?? 0);
-        return b.annualized - a.annualized;
-      });
-  }, [enabledExchanges, minVolume, recommendedOnly, search, sortMode, spotRows]);
+  }, [enabledExchanges, minVolume, recommendedOnly, search, spotRows]);
+
+  const sortedCrossRows = useMemo(() => applySort(filteredCrossRows, { sort: sortBy, order: sortOrder }, {
+    annualized: (row) => row.annualizedSpread,
+    openInterest: (row) => row.openInterestUsd,
+    priceSpread: (row) => Math.abs(row.priceSpread),
+    score: (row) => row.score,
+    volume: (row) => row.volume24h
+  }), [filteredCrossRows, sortBy, sortOrder]);
+
+  const sortedSpotRows = useMemo(() => applySort(filteredSpotRows, { sort: sortBy, order: sortOrder }, {
+    annualized: (row) => row.annualized,
+    openInterest: () => undefined,
+    priceSpread: (row) => Math.abs(row.priceSpread),
+    score: (row) => row.score,
+    volume: (row) => row.volume24h
+  }), [filteredSpotRows, sortBy, sortOrder]);
 
   const activeModuleConfig = getDashboardModuleConfig(activeModule);
 
   const handleModuleChange = useCallback((module: DashboardModule) => {
     setActiveModule(module);
-    window.history.pushState(null, "", `/dashboard?module=${module}`);
-  }, []);
+    const params = new URLSearchParams(window.location.search);
+    params.set("module", module);
+    params.set("sort", sortBy);
+    params.set("order", sortOrder);
+    window.history.pushState(null, "", `/dashboard?${params.toString()}`);
+  }, [sortBy, sortOrder]);
+
+  const updateSort = useCallback((nextSort: DashboardSortKey) => {
+    const next = toggleSortState({ sort: sortBy, order: sortOrder }, nextSort);
+    const params = new URLSearchParams(window.location.search);
+    params.set("module", activeModule);
+    params.set("sort", next.sort);
+    params.set("order", next.order);
+    window.history.pushState(null, "", `/dashboard?${params.toString()}`);
+    setSortBy(next.sort);
+    setSortOrder(next.order);
+  }, [activeModule, sortBy, sortOrder]);
 
   return (
     <PageShell
@@ -169,11 +202,12 @@ export default function DashboardPage() {
                 </label>
               ))}
             </div>
-            <select className="h-9 border border-slate-700 bg-slate-950 px-3 text-sm outline-none focus:border-cyan-400" value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
+            <select className="h-9 border border-slate-700 bg-slate-950 px-3 text-sm outline-none focus:border-cyan-400" value={sortBy} onChange={(event) => updateSort(event.target.value as DashboardSortKey)}>
               <option value="score">评分</option>
-              <option value="spread">年化价差</option>
-              <option value="single">单所年化</option>
+              <option value="annualized">年化</option>
+              <option value="priceSpread">价差</option>
               <option value="volume">24h 成交量</option>
+              <option value="openInterest">持仓量</option>
             </select>
             <label className="flex h-9 items-center gap-2 border border-slate-700 bg-slate-950 px-3 text-sm text-slate-300">
               <input checked={recommendedOnly} type="checkbox" onChange={(event) => setRecommendedOnly(event.target.checked)} />
@@ -217,9 +251,9 @@ export default function DashboardPage() {
         <section className="space-y-2">
           <SectionTitle title={activeModuleConfig.title} subtitle={activeModuleConfig.subtitle} />
           {activeModule === "cross" ? (
-            <CrossExchangeTable loading={loading} rows={filteredCrossRows} />
+            <CrossExchangeTable loading={loading} onSort={updateSort} rows={sortedCrossRows} sortState={{ sort: sortBy, order: sortOrder }} />
           ) : (
-            <SpotPerpTable loading={loading} rows={filteredSpotRows} />
+            <SpotPerpTable loading={loading} onSort={updateSort} rows={sortedSpotRows} sortState={{ sort: sortBy, order: sortOrder }} />
           )}
         </section>
       </div>
@@ -248,13 +282,23 @@ function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) 
   );
 }
 
-function CrossExchangeTable({ loading, rows }: { loading: boolean; rows: CrossExchangeOpportunity[] }) {
+function CrossExchangeTable({
+  loading,
+  onSort,
+  rows,
+  sortState
+}: {
+  loading: boolean;
+  onSort: (sort: DashboardSortKey) => void;
+  rows: CrossExchangeOpportunity[];
+  sortState: { sort: DashboardSortKey; order: SortOrder };
+}) {
   return (
     <TableShell>
       <table className="min-w-[1740px] border-collapse text-left text-xs">
         <TableHead
           headers={[
-            ["评分", "right"],
+            ["评分", "right", "score"],
             ["风险", "left"],
             ["原因", "left"],
             ["币种", "left"],
@@ -263,15 +307,17 @@ function CrossExchangeTable({ loading, rows }: { loading: boolean; rows: CrossEx
             ["Binance", "right"],
             ["OKX", "right"],
             ["Bybit", "right"],
-            ["年化价差", "right"],
+            ["年化价差", "right", "annualized"],
             ["方向", "left"],
-            ["价格价差", "right"],
+            ["价格价差", "right", "priceSpread"],
             ["价差方向说明", "left"],
             ["下次资金费率", "left"],
             ["倒计时", "left"],
-            ["24h成交量", "right"],
-            ["持仓量", "right"]
+            ["24h成交量", "right", "volume"],
+            ["持仓量", "right", "openInterest"]
           ]}
+          onSort={onSort}
+          sortState={sortState}
         />
         <tbody className="divide-y divide-slate-800">
           {loading && rows.length === 0 ? <EmptyRow colSpan={17} label="数据加载中..." /> : null}
@@ -303,13 +349,23 @@ function CrossExchangeTable({ loading, rows }: { loading: boolean; rows: CrossEx
   );
 }
 
-function SpotPerpTable({ loading, rows }: { loading: boolean; rows: SpotPerpOpportunity[] }) {
+function SpotPerpTable({
+  loading,
+  onSort,
+  rows,
+  sortState
+}: {
+  loading: boolean;
+  onSort: (sort: DashboardSortKey) => void;
+  rows: SpotPerpOpportunity[];
+  sortState: { sort: DashboardSortKey; order: SortOrder };
+}) {
   return (
     <TableShell>
       <table className="min-w-[1420px] border-collapse text-left text-xs">
         <TableHead
           headers={[
-            ["评分", "right"],
+            ["评分", "right", "score"],
             ["风险", "left"],
             ["原因", "left"],
             ["币种", "left"],
@@ -318,13 +374,15 @@ function SpotPerpTable({ loading, rows }: { loading: boolean; rows: SpotPerpOppo
             ["现货交易所", "left"],
             ["合约交易所", "left"],
             ["Funding", "right"],
-            ["年化", "right"],
+            ["年化", "right", "annualized"],
             ["现货价格", "right"],
             ["合约价格", "right"],
-            ["价差", "right"],
+            ["价差", "right", "priceSpread"],
             ["价差方向说明", "left"],
-            ["24h成交量", "right"]
+            ["24h成交量", "right", "volume"]
           ]}
+          onSort={onSort}
+          sortState={sortState}
         />
         <tbody className="divide-y divide-slate-800">
           {loading && rows.length === 0 ? <EmptyRow colSpan={15} label="数据加载中..." /> : null}
@@ -358,13 +416,25 @@ function TableShell({ children }: { children: ReactNode }) {
   return <div className="max-h-[560px] overflow-auto border border-slate-800 bg-panel">{children}</div>;
 }
 
-function TableHead({ headers }: { headers: Array<[string, "left" | "right"]> }) {
+function TableHead({
+  headers,
+  onSort,
+  sortState
+}: {
+  headers: Array<[string, "left" | "right", DashboardSortKey?]>;
+  onSort: (sort: DashboardSortKey) => void;
+  sortState: { sort: DashboardSortKey; order: SortOrder };
+}) {
   return (
     <thead className="sticky top-0 z-10 bg-slate-950 text-slate-400">
       <tr>
-        {headers.map(([label, align]) => (
+        {headers.map(([label, align, sort]) => (
           <th className={`whitespace-nowrap px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`} key={label}>
-            {label}
+            {sort ? (
+              <button className="text-inherit hover:text-cyan-200" onClick={() => onSort(sort)} type="button">
+                {label}{sortIndicator(sortState, sort)}
+              </button>
+            ) : label}
           </th>
         ))}
       </tr>

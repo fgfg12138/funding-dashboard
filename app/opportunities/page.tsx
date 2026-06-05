@@ -15,6 +15,7 @@ import {
 import type { ExchangeName } from "@/lib/exchanges/types";
 import type { UnifiedOpportunity, UnifiedOpportunityFilters, UnifiedOpportunitySortBy, UnifiedOpportunityType } from "@/lib/opportunities/types";
 import { filterUnifiedOpportunities, isHighRiskUnifiedOpportunity, isRecommendedUnifiedOpportunity } from "@/lib/opportunities/unifiedOpportunities";
+import { applySort, parseSortState, sortIndicator, toggleSortState, type SortOrder } from "@/lib/tableSort/tableSort";
 
 type SourceSnapshotMeta = {
   fundingMarketCount: number;
@@ -53,6 +54,7 @@ const SORT_OPTIONS: Array<{ label: string; value: UnifiedOpportunitySortBy }> = 
   { label: "成交量", value: "volume" },
   { label: "下次资金费率", value: "nextFunding" }
 ];
+const OPPORTUNITY_SORTS: UnifiedOpportunitySortBy[] = ["score", "annualized", "estimatedCarry", "volume", "nextFunding"];
 
 export default function OpportunitiesPage() {
   const [rows, setRows] = useState<UnifiedOpportunity[]>([]);
@@ -72,6 +74,26 @@ export default function OpportunitiesPage() {
   const [recommendedOnly, setRecommendedOnly] = useState(false);
   const [hideHighRisk, setHideHighRisk] = useState(false);
   const [sortBy, setSortBy] = useState<UnifiedOpportunitySortBy>("score");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+
+  useEffect(() => {
+    const syncSortFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const parsed = parseSortState<UnifiedOpportunitySortBy>({
+        allowedSorts: OPPORTUNITY_SORTS,
+        defaultOrder: "desc",
+        defaultSort: "score",
+        order: params.get("order"),
+        sort: params.get("sort")
+      });
+      setSortBy(parsed.sort);
+      setSortOrder(parsed.order);
+    };
+
+    syncSortFromUrl();
+    window.addEventListener("popstate", syncSortFromUrl);
+    return () => window.removeEventListener("popstate", syncSortFromUrl);
+  }, []);
 
   const loadData = useCallback(async () => {
     if (requestInFlight.current) return;
@@ -113,9 +135,26 @@ export default function OpportunitiesPage() {
 
   const filteredRows = useMemo(() => {
     const baseRows = filterUnifiedOpportunities(rows, filters);
-    return quickMode === "highRisk" ? baseRows.filter(isHighRiskUnifiedOpportunity) : baseRows;
-  }, [exchange, hideHighRisk, minAnnualized, minScore, minVolume24h, opportunityType, quickMode, recommendedOnly, rows, search, sortBy]);
+    const visibleRows = quickMode === "highRisk" ? baseRows.filter(isHighRiskUnifiedOpportunity) : baseRows;
+    return applySort(visibleRows, { sort: sortBy, order: sortOrder }, {
+      annualized: (row) => row.annualizedRate,
+      estimatedCarry: (row) => row.estimatedCarryAnnualized,
+      nextFunding: (row) => row.nextFundingTime,
+      score: (row) => row.score,
+      volume: (row) => row.volume24h
+    });
+  }, [exchange, hideHighRisk, minAnnualized, minScore, minVolume24h, opportunityType, quickMode, recommendedOnly, rows, search, sortBy, sortOrder]);
   const stats = useMemo(() => buildStats(rows), [rows]);
+
+  const updateSort = useCallback((nextSort: UnifiedOpportunitySortBy) => {
+    const next = toggleSortState({ sort: sortBy, order: sortOrder }, nextSort);
+    const params = new URLSearchParams(window.location.search);
+    params.set("sort", next.sort);
+    params.set("order", next.order);
+    window.history.pushState(null, "", `/opportunities?${params.toString()}`);
+    setSortBy(next.sort);
+    setSortOrder(next.order);
+  }, [sortBy, sortOrder]);
 
   return (
     <PageShell
@@ -195,7 +234,7 @@ export default function OpportunitiesPage() {
         <NumberFilter label="最低评分" step={5} value={minScore} onChange={setMinScore} />
         <NumberFilter label="最低年化" step={5} value={minAnnualized} onChange={setMinAnnualized} />
         <NumberFilter label="最低成交量" step={1000000} value={minVolume24h} onChange={setMinVolume24h} />
-        <SelectFilter label="排序" value={sortBy} onChange={(value) => setSortBy(value as UnifiedOpportunitySortBy)}>
+        <SelectFilter label="排序" value={sortBy} onChange={(value) => updateSort(value as UnifiedOpportunitySortBy)}>
           {SORT_OPTIONS.map((item) => (
             <option key={item.value} value={item.value}>
               {item.label}
@@ -225,18 +264,18 @@ export default function OpportunitiesPage() {
         <table className="min-w-[1680px] border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-slate-950 text-xs uppercase tracking-wide text-slate-500">
             <tr className="border-b border-slate-800">
-              <Th align="right">评分</Th>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="score" onSort={updateSort}>评分</SortableTh>
               <Th>类型</Th>
               <Th>风险</Th>
               <Th>币种</Th>
               <Th>方向</Th>
               <Th>交易所</Th>
-              <Th align="right">年化</Th>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="annualized" onSort={updateSort}>年化</SortableTh>
               <Th align="right">价差 / Basis</Th>
-              <Th align="right">估算Carry</Th>
-              <Th align="right">24h成交量</Th>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="estimatedCarry" onSort={updateSort}>估算Carry</SortableTh>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="volume" onSort={updateSort}>24h成交量</SortableTh>
               <Th align="right">持仓量</Th>
-              <Th>下次资金费率</Th>
+              <SortableTh current={{ sort: sortBy, order: sortOrder }} sort="nextFunding" onSort={updateSort}>下次资金费率</SortableTh>
               <Th>原因</Th>
             </tr>
           </thead>
@@ -341,6 +380,28 @@ function NumberFilter({ label, onChange, step, value }: { label: string; onChang
 
 function Th({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {
   return <th className={`whitespace-nowrap px-4 py-3 ${align === "right" ? "text-right" : "text-left"}`}>{children}</th>;
+}
+
+function SortableTh({
+  align = "left",
+  children,
+  current,
+  onSort,
+  sort
+}: {
+  align?: "left" | "right";
+  children: ReactNode;
+  current: { sort: UnifiedOpportunitySortBy; order: SortOrder };
+  onSort: (sort: UnifiedOpportunitySortBy) => void;
+  sort: UnifiedOpportunitySortBy;
+}) {
+  return (
+    <th className={`whitespace-nowrap px-4 py-3 ${align === "right" ? "text-right" : "text-left"}`}>
+      <button className="text-inherit hover:text-cyan-200" onClick={() => onSort(sort)} type="button">
+        {children}{sortIndicator(current, sort)}
+      </button>
+    </th>
+  );
 }
 
 function Td({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {

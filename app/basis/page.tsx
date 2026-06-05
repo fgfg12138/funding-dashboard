@@ -7,6 +7,7 @@ import { PageShell } from "@/components/PageShell";
 import { RiskBadge, ScoreBadge, StatCard } from "@/components/ui/dashboard";
 import type { BasisOpportunity } from "@/lib/basis/types";
 import type { ExchangeName } from "@/lib/exchanges/types";
+import { applySort, parseSortState, sortIndicator, toggleSortState, type SortOrder } from "@/lib/tableSort/tableSort";
 
 type BasisApiResponse = {
   data: BasisOpportunity[];
@@ -16,6 +17,8 @@ type BasisApiResponse = {
 };
 
 const EXCHANGES: Array<"all" | ExchangeName> = ["all", "Binance", "OKX", "Bybit"];
+type BasisSortKey = "score" | "annualized" | "estimatedCarry" | "volume" | "openInterest" | "basis";
+const BASIS_SORTS: BasisSortKey[] = ["score", "annualized", "estimatedCarry", "volume", "openInterest", "basis"];
 
 export default function BasisPage() {
   const [rows, setRows] = useState<BasisOpportunity[]>([]);
@@ -30,6 +33,27 @@ export default function BasisPage() {
   const [minVolume, setMinVolume] = useState(1_000_000);
   const [maxAbsBasis, setMaxAbsBasis] = useState(2);
   const [recommendedOnly, setRecommendedOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<BasisSortKey>("estimatedCarry");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+
+  useEffect(() => {
+    const syncSortFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const parsed = parseSortState<BasisSortKey>({
+        allowedSorts: BASIS_SORTS,
+        defaultOrder: "desc",
+        defaultSort: "estimatedCarry",
+        order: params.get("order"),
+        sort: params.get("sort")
+      });
+      setSortBy(parsed.sort);
+      setSortOrder(parsed.order);
+    };
+
+    syncSortFromUrl();
+    window.addEventListener("popstate", syncSortFromUrl);
+    return () => window.removeEventListener("popstate", syncSortFromUrl);
+  }, []);
 
   const loadData = useCallback(async () => {
     if (requestInFlight.current) return;
@@ -64,11 +88,28 @@ export default function BasisPage() {
       .filter((row) => row.annualizedFundingRate >= minAnnualized)
       .filter((row) => (row.volume24h ?? 0) >= minVolume)
       .filter((row) => Math.abs(row.basisPercent) <= maxAbsBasis)
-      .filter((row) => (recommendedOnly ? isRecommended(row) : true))
-      .sort((a, b) => b.score - a.score || b.estimatedCarryAnnualized - a.estimatedCarryAnnualized);
+      .filter((row) => (recommendedOnly ? isRecommended(row) : true));
   }, [exchange, maxAbsBasis, minAnnualized, minVolume, recommendedOnly, rows, search]);
+  const sortedRows = useMemo(() => applySort(filteredRows, { sort: sortBy, order: sortOrder }, {
+    annualized: (row) => row.annualizedFundingRate,
+    basis: (row) => Math.abs(row.basisPercent),
+    estimatedCarry: (row) => row.estimatedCarryAnnualized,
+    openInterest: (row) => row.openInterestUsd,
+    score: (row) => row.score,
+    volume: (row) => row.volume24h
+  }), [filteredRows, sortBy, sortOrder]);
 
   const stats = useMemo(() => buildStats(rows), [rows]);
+
+  const updateSort = useCallback((nextSort: BasisSortKey) => {
+    const next = toggleSortState({ sort: sortBy, order: sortOrder }, nextSort);
+    const params = new URLSearchParams(window.location.search);
+    params.set("sort", next.sort);
+    params.set("order", next.order);
+    window.history.pushState(null, "", `/basis?${params.toString()}`);
+    setSortBy(next.sort);
+    setSortOrder(next.order);
+  }, [sortBy, sortOrder]);
 
   return (
     <PageShell
@@ -137,25 +178,25 @@ export default function BasisPage() {
         <table className="min-w-[1500px] divide-y divide-slate-800 text-sm">
           <thead className="sticky top-0 z-10 bg-slate-950 text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <Th align="right">评分</Th>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="score">评分</SortableTh>
               <Th>风险</Th>
               <Th>币种</Th>
               <Th>交易所</Th>
               <Th align="right">现货价格</Th>
               <Th align="right">永续价格</Th>
-              <Th align="right">Basis %</Th>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="basis">Basis %</SortableTh>
               <Th align="right">Funding</Th>
-              <Th align="right">年化</Th>
-              <Th align="right">估算Carry</Th>
-              <Th align="right">24h成交量</Th>
-              <Th align="right">持仓量</Th>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="annualized">年化</SortableTh>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="estimatedCarry">估算Carry</SortableTh>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="volume">24h成交量</SortableTh>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} onSort={updateSort} sort="openInterest">持仓量</SortableTh>
               <Th>下次资金费率</Th>
               <Th>原因</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800 bg-slate-950/30">
             {loading && rows.length === 0 ? <EmptyRow colSpan={14} label="数据加载中..." /> : null}
-            {filteredRows.map((row) => (
+            {sortedRows.map((row) => (
               <tr key={`${row.spotExchange}:${row.symbol}`} className="hover:bg-slate-900/70">
                 <Td align="right"><ScoreBadge score={row.score} /></Td>
                 <Td><RiskTags tags={row.riskTags} /></Td>
@@ -234,6 +275,28 @@ function RiskTags({ tags }: { tags: string[] }) {
 
 function Th({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {
   return <th className={`whitespace-nowrap px-4 py-3 ${align === "right" ? "text-right" : "text-left"}`}>{children}</th>;
+}
+
+function SortableTh({
+  align = "left",
+  children,
+  current,
+  onSort,
+  sort
+}: {
+  align?: "left" | "right";
+  children: ReactNode;
+  current: { sort: BasisSortKey; order: SortOrder };
+  onSort: (sort: BasisSortKey) => void;
+  sort: BasisSortKey;
+}) {
+  return (
+    <th className={`whitespace-nowrap px-4 py-3 ${align === "right" ? "text-right" : "text-left"}`}>
+      <button className="text-inherit hover:text-cyan-200" onClick={() => onSort(sort)} type="button">
+        {children}{sortIndicator(current, sort)}
+      </button>
+    </th>
+  );
 }
 
 function Td({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {

@@ -4,6 +4,7 @@ import { PageShell } from "@/components/PageShell";
 import { queryAllFundingHistory, queryAllOpportunityHistory } from "@/lib/data/historyStore";
 import { buildAlphaDiscovery, type AlphaOpportunity, type AlphaType } from "@/lib/research/alphaScore";
 import { buildFundingFactorResearch } from "@/lib/research/fundingFactors";
+import { applySort, buildSortQuery, parseSortState, sortIndicator, type SortOrder, type SortState } from "@/lib/tableSort/tableSort";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,11 @@ type AlphaPageParams = {
   type?: string;
   minAlphaScore?: string;
   limit?: string;
+  order?: string;
+  sort?: string;
 };
+type AlphaSortKey = "score" | "latestAnnualized" | "avgAnnualized" | "positiveFundingRatio" | "survivalHours" | "annualizedDecay" | "fundingVolatility" | "qualityScore";
+const ALPHA_SORTS: AlphaSortKey[] = ["score", "latestAnnualized", "avgAnnualized", "positiveFundingRatio", "survivalHours", "annualizedDecay", "fundingVolatility", "qualityScore"];
 
 export default async function AlphaPage({
   searchParams
@@ -33,6 +38,13 @@ export default async function AlphaPage({
   const limit = parseNumberParam(params.limit) ?? 20;
   const type = parseAlphaType(params.type);
   const minAlphaScore = parseNumberParam(params.minAlphaScore);
+  const sortState = parseSortState<AlphaSortKey>({
+    allowedSorts: ALPHA_SORTS,
+    defaultOrder: "desc",
+    defaultSort: "score",
+    order: params.order,
+    sort: params.sort
+  });
   const now = Date.now();
   const from = now - windowHours * 60 * 60_000;
   const [opportunityRows, fundingRows] = await Promise.all([
@@ -100,18 +112,28 @@ export default async function AlphaPage({
         <Stat label="高风险数量" value={discovery.topRiskyAlpha.length} tone="text-rose-300" />
       </section>
 
-      <AlphaTable rows={discovery.topAlpha} title="Top Alpha 机会" />
+      <AlphaTable params={params} rows={sortAlphaRows(discovery.topAlpha, sortState)} sortState={sortState} title="Top Alpha 机会" />
       <section className="grid gap-3 2xl:grid-cols-2">
-        <AlphaTable rows={discovery.topStableAlpha} title="稳定 Alpha" />
-        <AlphaTable rows={discovery.topEmergingAlpha} title="新兴 Alpha" />
-        <AlphaTable rows={discovery.topMomentumAlpha} title="动量 Alpha" />
-        <AlphaTable rows={discovery.topRiskyAlpha} title="高风险 Alpha" />
+        <AlphaTable params={params} rows={sortAlphaRows(discovery.topStableAlpha, sortState)} sortState={sortState} title="稳定 Alpha" />
+        <AlphaTable params={params} rows={sortAlphaRows(discovery.topEmergingAlpha, sortState)} sortState={sortState} title="新兴 Alpha" />
+        <AlphaTable params={params} rows={sortAlphaRows(discovery.topMomentumAlpha, sortState)} sortState={sortState} title="动量 Alpha" />
+        <AlphaTable params={params} rows={sortAlphaRows(discovery.topRiskyAlpha, sortState)} sortState={sortState} title="高风险 Alpha" />
       </section>
     </PageShell>
   );
 }
 
-function AlphaTable({ rows, title }: { rows: AlphaOpportunity[]; title: string }) {
+function AlphaTable({
+  params,
+  rows,
+  sortState,
+  title
+}: {
+  params: AlphaPageParams;
+  rows: AlphaOpportunity[];
+  sortState: SortState<AlphaSortKey>;
+  title: string;
+}) {
   return (
     <section className="border border-slate-800 bg-panel">
       <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
@@ -125,15 +147,15 @@ function AlphaTable({ rows, title }: { rows: AlphaOpportunity[]; title: string }
               <Header>币种</Header>
               <Header>类型</Header>
               <Header>交易所组合</Header>
-              <Header align="right">评分</Header>
+              <SortableHeader align="right" params={params} sort="score" sortState={sortState}>评分</SortableHeader>
               <Header>等级</Header>
-              <Header align="right">最新年化</Header>
-              <Header align="right">平均年化</Header>
-              <Header align="right">正费率占比</Header>
-              <Header align="right">存活小时</Header>
-              <Header align="right">衰减</Header>
-              <Header align="right">波动</Header>
-              <Header align="right">质量分</Header>
+              <SortableHeader align="right" params={params} sort="latestAnnualized" sortState={sortState}>最新年化</SortableHeader>
+              <SortableHeader align="right" params={params} sort="avgAnnualized" sortState={sortState}>平均年化</SortableHeader>
+              <SortableHeader align="right" params={params} sort="positiveFundingRatio" sortState={sortState}>正费率占比</SortableHeader>
+              <SortableHeader align="right" params={params} sort="survivalHours" sortState={sortState}>存活小时</SortableHeader>
+              <SortableHeader align="right" params={params} sort="annualizedDecay" sortState={sortState}>衰减</SortableHeader>
+              <SortableHeader align="right" params={params} sort="fundingVolatility" sortState={sortState}>波动</SortableHeader>
+              <SortableHeader align="right" params={params} sort="qualityScore" sortState={sortState}>质量分</SortableHeader>
               <Header>原因</Header>
             </tr>
           </thead>
@@ -180,18 +202,47 @@ function Header({ align = "left", children }: { align?: "left" | "right"; childr
   return <th className={`whitespace-nowrap px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`}>{children}</th>;
 }
 
+function SortableHeader({
+  align = "left",
+  children,
+  params,
+  sort,
+  sortState
+}: {
+  align?: "left" | "right";
+  children: ReactNode;
+  params: AlphaPageParams;
+  sort: AlphaSortKey;
+  sortState: SortState<AlphaSortKey>;
+}) {
+  return (
+    <th className={`whitespace-nowrap px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`}>
+      <Link className="text-inherit hover:text-cyan-200" href={`/alpha?${buildSortQuery(sortState, sort, buildSearchParams(params))}`}>
+        {children}{sortIndicator(sortState, sort)}
+      </Link>
+    </th>
+  );
+}
+
 function Cell({ align = "left", children }: { align?: "left" | "right"; children: ReactNode }) {
   return <td className={`px-3 py-2 align-top tabular-nums ${align === "right" ? "text-right" : "text-left"}`}>{children}</td>;
 }
 
 function buildHref(params: AlphaPageParams): string {
+  const searchParams = buildSearchParams(params);
+  const query = searchParams.toString();
+  return query ? `/alpha?${query}` : "/alpha";
+}
+
+function buildSearchParams(params: AlphaPageParams): URLSearchParams {
   const searchParams = new URLSearchParams();
   if (params.window) searchParams.set("window", params.window);
   if (params.type && params.type !== "all") searchParams.set("type", params.type);
   if (params.minAlphaScore) searchParams.set("minAlphaScore", params.minAlphaScore);
   if (params.limit) searchParams.set("limit", params.limit);
-  const query = searchParams.toString();
-  return query ? `/alpha?${query}` : "/alpha";
+  if (params.sort) searchParams.set("sort", params.sort);
+  if (params.order) searchParams.set("order", params.order);
+  return searchParams;
 }
 
 function countStrongAlpha(rows: AlphaOpportunity[]): number {
@@ -231,4 +282,17 @@ function formatNumber(value?: number): string {
 function formatPercent(value?: number): string {
   if (value === undefined || Number.isNaN(value)) return "-";
   return `${value.toFixed(2)}%`;
+}
+
+function sortAlphaRows(rows: AlphaOpportunity[], sortState: SortState<AlphaSortKey>): AlphaOpportunity[] {
+  return applySort(rows, sortState, {
+    annualizedDecay: (row) => row.annualizedDecay,
+    avgAnnualized: (row) => row.avgAnnualized,
+    fundingVolatility: (row) => row.fundingVolatility,
+    latestAnnualized: (row) => row.latestAnnualized,
+    positiveFundingRatio: (row) => row.positiveFundingRatio,
+    qualityScore: (row) => row.qualityScore,
+    score: (row) => row.alphaScore,
+    survivalHours: (row) => row.survivalHours
+  });
 }
