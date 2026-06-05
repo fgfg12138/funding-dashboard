@@ -57,6 +57,12 @@ describe("calculateAnnualizedRate", () => {
     expect(calculateAnnualizedRate(-0.0002, 8)).toBeCloseTo(-21.9, 4);
   });
 
+  it("uses the funding interval without double-counting percent conversion", () => {
+    expect(calculateAnnualizedRate(0.0001, 8)).toBeCloseTo(10.95, 4);
+    expect(calculateAnnualizedRate(0.0001, 4)).toBeCloseTo(21.9, 4);
+    expect(calculateAnnualizedRate(0.0001, 1)).toBeCloseTo(87.6, 4);
+  });
+
   it("returns zero for invalid intervals", () => {
     expect(calculateAnnualizedRate(0.0001, 0)).toBe(0);
   });

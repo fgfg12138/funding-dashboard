@@ -14,10 +14,12 @@ type BybitLinearTicker = {
   symbol: string;
   markPrice: string;
   indexPrice: string;
+  lastPrice?: string;
   fundingRate: string;
   nextFundingTime: string;
   fundingIntervalHour?: string;
   turnover24h?: string;
+  openInterest?: string;
   openInterestValue?: string;
 };
 
@@ -30,7 +32,58 @@ type BybitSpotTicker = {
 const BASE = "https://api.bybit.com";
 
 export async function fetchBybitFundingMarkets(): Promise<FundingMarket[]> {
-  const data = await fetchJson<BybitResponse<BybitLinearTicker>>(`${BASE}/v5/market/tickers?category=linear`);
+  const fetchedAt = Date.now();
+  const sourceEndpoint = `${BASE}/v5/market/tickers?category=linear`;
+  const data = await fetchJson<BybitResponse<BybitLinearTicker>>(sourceEndpoint);
+  assertBybit(data);
+
+  return data.result.list
+    .filter((item) => item.symbol.endsWith("USDT"))
+    .map((item) => {
+      const normalized = normalizeSymbol(item.symbol);
+      const openInterest = Number(item.openInterest);
+      const markPrice = Number(item.markPrice);
+      const openInterestValue = Number(item.openInterestValue);
+      return {
+        exchange: "Bybit" as const,
+        rawSymbol: item.symbol,
+        symbol: normalized.symbol,
+        base: normalized.base,
+        quote: normalized.quote,
+        fundingRate: Number(item.fundingRate),
+        fundingIntervalHours: Number(item.fundingIntervalHour ?? 8),
+        nextFundingTime: Number(item.nextFundingTime),
+        markPrice,
+        indexPrice: Number(item.indexPrice),
+        lastPrice: Number(item.lastPrice),
+        volume24h: Number(item.turnover24h),
+        openInterest: Number.isFinite(openInterest) ? openInterest : undefined,
+        openInterestUsd: Number.isFinite(openInterestValue)
+          ? openInterestValue
+          : Number.isFinite(openInterest) ? openInterest * markPrice : undefined,
+        fetchedAt,
+        sourceEndpoint,
+        rawFields: pickFields(item, [
+          "symbol",
+          "markPrice",
+          "indexPrice",
+          "lastPrice",
+          "fundingRate",
+          "nextFundingTime",
+          "fundingIntervalHour",
+          "turnover24h",
+          "openInterest",
+          "openInterestValue"
+        ])
+      };
+    })
+    .filter((market) => market.quote === "USDT" && Number.isFinite(market.markPrice));
+}
+
+export async function fetchBybitSpotMarkets(): Promise<SpotMarket[]> {
+  const fetchedAt = Date.now();
+  const sourceEndpoint = `${BASE}/v5/market/tickers?category=spot`;
+  const data = await fetchJson<BybitResponse<BybitSpotTicker>>(sourceEndpoint);
   assertBybit(data);
 
   return data.result.list
@@ -43,33 +96,11 @@ export async function fetchBybitFundingMarkets(): Promise<FundingMarket[]> {
         symbol: normalized.symbol,
         base: normalized.base,
         quote: normalized.quote,
-        fundingRate: Number(item.fundingRate),
-        fundingIntervalHours: Number(item.fundingIntervalHour ?? 8),
-        nextFundingTime: Number(item.nextFundingTime),
-        markPrice: Number(item.markPrice),
-        indexPrice: Number(item.indexPrice),
-        volume24h: Number(item.turnover24h),
-        openInterestUsd: Number(item.openInterestValue)
-      };
-    })
-    .filter((market) => market.quote === "USDT" && Number.isFinite(market.markPrice));
-}
-
-export async function fetchBybitSpotMarkets(): Promise<SpotMarket[]> {
-  const data = await fetchJson<BybitResponse<BybitSpotTicker>>(`${BASE}/v5/market/tickers?category=spot`);
-  assertBybit(data);
-
-  return data.result.list
-    .filter((item) => item.symbol.endsWith("USDT"))
-    .map((item) => {
-      const normalized = normalizeSymbol(item.symbol);
-      return {
-        exchange: "Bybit" as const,
-        symbol: normalized.symbol,
-        base: normalized.base,
-        quote: normalized.quote,
         price: Number(item.lastPrice),
-        volume24h: Number(item.turnover24h)
+        volume24h: Number(item.turnover24h),
+        fetchedAt,
+        sourceEndpoint,
+        rawFields: pickFields(item, ["symbol", "lastPrice", "turnover24h"])
       };
     })
     .filter((market) => market.quote === "USDT" && Number.isFinite(market.price));
@@ -79,4 +110,11 @@ function assertBybit<T>(data: BybitResponse<T>) {
   if (data.retCode !== 0) {
     throw new Error(`Bybit error: ${data.retMsg}`);
   }
+}
+
+function pickFields(source: Record<string, unknown>, keys: string[]): Record<string, unknown> {
+  return keys.reduce<Record<string, unknown>>((acc, key) => {
+    acc[key] = source[key];
+    return acc;
+  }, {});
 }

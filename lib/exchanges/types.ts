@@ -19,17 +19,28 @@ export type FundingMarket = {
   nextFundingTime: number;
   markPrice: number;
   indexPrice?: number;
+  lastPrice?: number;
   volume24h?: number;
+  openInterest?: number;
   openInterestUsd?: number;
+  fetchedAt?: number;
+  sourceUpdatedAt?: number;
+  sourceEndpoint?: string;
+  rawFields?: Record<string, unknown>;
 };
 
 export type SpotMarket = {
   exchange: ExchangeName;
+  rawSymbol?: string;
   symbol: string;
   base: string;
   quote: string;
   price: number;
   volume24h?: number;
+  fetchedAt?: number;
+  sourceUpdatedAt?: number;
+  sourceEndpoint?: string;
+  rawFields?: Record<string, unknown>;
 };
 
 export type ExchangeFundingRates = {
@@ -71,6 +82,9 @@ export type DebugMarketRow = {
   nextFundingTime: number;
   volume24h?: number;
   openInterestUsd?: number;
+  fetchedAt?: number;
+  sourceUpdatedAt?: number;
+  sourceEndpoint?: string;
 };
 
 export type SpotPerpOpportunity = {

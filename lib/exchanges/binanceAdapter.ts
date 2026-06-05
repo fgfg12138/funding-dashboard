@@ -14,6 +14,7 @@ type BinanceTicker = {
   symbol: string;
   lastPrice: string;
   quoteVolume: string;
+  closeTime?: number;
 };
 
 type BinanceOpenInterest = {
@@ -27,18 +28,24 @@ const OPEN_INTEREST_CACHE_TTL_MS = 4 * 60_000;
 const openInterestCache = new Map<string, { expiresAt: number; openInterest: number }>();
 
 export async function fetchBinanceFundingMarkets(): Promise<FundingMarket[]> {
+  const fetchedAt = Date.now();
+  const premiumEndpoint = `${FUTURES_BASE}/fapi/v1/premiumIndex`;
+  const tickerEndpoint = `${FUTURES_BASE}/fapi/v1/ticker/24hr`;
   const [premium, tickers] = await Promise.all([
-    fetchJson<BinancePremium[]>(`${FUTURES_BASE}/fapi/v1/premiumIndex`),
-    fetchJson<BinanceTicker[]>(`${FUTURES_BASE}/fapi/v1/ticker/24hr`)
+    fetchJson<BinancePremium[]>(premiumEndpoint),
+    fetchJson<BinanceTicker[]>(tickerEndpoint)
   ]);
+  const tickerBySymbol = new Map(tickers.map((ticker) => [ticker.symbol, ticker]));
   const volumeBySymbol = new Map(tickers.map((ticker) => [ticker.symbol, Number(ticker.quoteVolume)]));
   const usdtPremium = premium.filter((item) => item.symbol.endsWith("USDT"));
   const markPriceBySymbol = new Map(usdtPremium.map((item) => [item.symbol, Number(item.markPrice)]));
-  const openInterestBySymbol = await fetchBinanceOpenInterestUsd(Array.from(markPriceBySymbol.entries()));
+  const openInterestBySymbol = await fetchBinanceOpenInterest(Array.from(markPriceBySymbol.entries()));
 
   return usdtPremium
     .map((item) => {
       const normalized = normalizeSymbol(item.symbol);
+      const ticker = tickerBySymbol.get(item.symbol);
+      const openInterest = openInterestBySymbol.get(item.symbol);
       return {
         exchange: "Binance" as const,
         rawSymbol: item.symbol,
@@ -50,14 +57,24 @@ export async function fetchBinanceFundingMarkets(): Promise<FundingMarket[]> {
         nextFundingTime: item.nextFundingTime,
         markPrice: Number(item.markPrice),
         indexPrice: Number(item.indexPrice),
+        lastPrice: ticker ? Number(ticker.lastPrice) : undefined,
         volume24h: volumeBySymbol.get(item.symbol),
-        openInterestUsd: openInterestBySymbol.get(item.symbol)
+        openInterest,
+        openInterestUsd: openInterest ? openInterest * Number(item.markPrice) : undefined,
+        fetchedAt,
+        sourceUpdatedAt: ticker?.closeTime,
+        sourceEndpoint: `${premiumEndpoint}; ${tickerEndpoint}; ${FUTURES_BASE}/fapi/v1/openInterest`,
+        rawFields: {
+          premiumIndex: pickFields(item, ["symbol", "markPrice", "indexPrice", "lastFundingRate", "nextFundingTime"]),
+          ticker24hr: ticker ? pickFields(ticker, ["symbol", "lastPrice", "quoteVolume", "closeTime"]) : undefined,
+          openInterest
+        }
       };
     })
     .filter((market) => market.quote === "USDT" && Number.isFinite(market.markPrice));
 }
 
-async function fetchBinanceOpenInterestUsd(symbolPrices: Array<[string, number]>): Promise<Map<string, number>> {
+async function fetchBinanceOpenInterest(symbolPrices: Array<[string, number]>): Promise<Map<string, number>> {
   const now = Date.now();
   const missingSymbols = symbolPrices.filter(([symbol]) => {
     const cached = openInterestCache.get(symbol);
@@ -85,18 +102,18 @@ async function fetchBinanceOpenInterestUsd(symbolPrices: Array<[string, number]>
 
   return new Map(
     symbolPrices
-      .map(([symbol, markPrice]) => {
+      .map(([symbol]) => {
         const cached = openInterestCache.get(symbol);
-        const openInterestUsd = cached ? cached.openInterest * markPrice : undefined;
-
-        return Number.isFinite(openInterestUsd) ? [symbol, openInterestUsd as number] as const : null;
+        return cached && Number.isFinite(cached.openInterest) ? [symbol, cached.openInterest] as const : null;
       })
       .filter((row): row is readonly [string, number] => Boolean(row))
   );
 }
 
 export async function fetchBinanceSpotMarkets(): Promise<SpotMarket[]> {
-  const tickers = await fetchJson<BinanceTicker[]>(`${SPOT_BASE}/api/v3/ticker/24hr`);
+  const fetchedAt = Date.now();
+  const sourceEndpoint = `${SPOT_BASE}/api/v3/ticker/24hr`;
+  const tickers = await fetchJson<BinanceTicker[]>(sourceEndpoint);
 
   return tickers
     .filter((ticker) => ticker.symbol.endsWith("USDT"))
@@ -104,12 +121,24 @@ export async function fetchBinanceSpotMarkets(): Promise<SpotMarket[]> {
       const normalized = normalizeSymbol(ticker.symbol);
       return {
         exchange: "Binance" as const,
+        rawSymbol: ticker.symbol,
         symbol: normalized.symbol,
         base: normalized.base,
         quote: normalized.quote,
         price: Number(ticker.lastPrice),
-        volume24h: Number(ticker.quoteVolume)
+        volume24h: Number(ticker.quoteVolume),
+        fetchedAt,
+        sourceUpdatedAt: ticker.closeTime,
+        sourceEndpoint,
+        rawFields: pickFields(ticker, ["symbol", "lastPrice", "quoteVolume", "closeTime"])
       };
     })
     .filter((market) => market.quote === "USDT" && Number.isFinite(market.price));
+}
+
+function pickFields<T extends Record<string, unknown>>(source: T, keys: string[]): Record<string, unknown> {
+  return keys.reduce<Record<string, unknown>>((acc, key) => {
+    acc[key] = source[key];
+    return acc;
+  }, {});
 }
